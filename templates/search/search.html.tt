@@ -1,0 +1,10 @@
+[%- USE Comma -%]
+
+Found [% results.num_hits | comma %] result[% IF results.num_hits != 1; 's'; END %] in [% results.time %].
+
+[% FOREACH hit IN results.data %]
+<p>
+  <a href="[% hit.url %]">[% hit.title %]</a> ([% hit.score %])<br/>
+  [% hit.excerpt %]
+</p>
+[% END %]

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Welcome to the Mojolicious real-time web framework!</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <h2>Welcome to the Mojolicious real-time web framework!</h2>
+    This is the static document "public/index.html",
+    <a href="/">click here</a> to get back to the start.
+
+<script>
+$(document).ready( function () {
+  $( "#query-form" ).submit(function( event ) {
+    event.preventDefault();
+    var query = $("#query").val();
+    $('#search-results').html('Search for ' + query + '...');
+    $.get('http://api.gramene.org/search.html?qry=' + query, function (html) {
+      $('#search-results').html(html);
+    });
+  });
+
+/*
+  $('query-form').submit( function (e) {
+    e.preventDefault(); 
+  });
+*/
+});
+</script>
+
+<form id="query-form">
+Search for: <input name="query" id="query"><input type="submit">
+</form>
+
+<div id="search-results"></div>
+
+</body>
+</html>
