@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>[% title OR 'Gramene Web Tools' %]</title>
+</head>
+<body>
+<img src="/img/gramene_logo.png"><br/>
+[% IF title; "<h1>$title</h1>"; END %]
+[% content %]
+</body>
+</html>
