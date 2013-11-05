@@ -1,4 +1,4 @@
-package Grm::API::Search;
+package Grm::Web::Search;
 
 use Mojo::Base 'Mojolicious::Controller';
 use Data::Dumper;

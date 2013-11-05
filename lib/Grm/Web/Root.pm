@@ -1,4 +1,4 @@
-package Grm::API::Root;
+package Grm::Web::Root;
 
 use Mojo::Base 'Mojolicious::Controller';
 

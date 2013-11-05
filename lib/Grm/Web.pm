@@ -1,4 +1,4 @@
-package Grm::API;
+package Grm::Web;
 
 use Mojo::Base 'Mojolicious';
 
