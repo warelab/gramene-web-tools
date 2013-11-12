@@ -1,0 +1,9 @@
+<div class="jumbotron">
+You can take the following actions:
+
+<ul>
+[% FOREACH action IN actions %]
+ <li><a href="/[% action %]">[% action %]</a></li>
+[% END %]
+</ul>
+</div>

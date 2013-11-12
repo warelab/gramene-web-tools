@@ -322,7 +322,8 @@ textarea {
 }
 
 a {
-  color: #428bca;
+  /* color: #428bca; */
+  color: #547a73;
   text-decoration: none;
 }
 

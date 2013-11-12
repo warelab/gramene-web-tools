@@ -1,10 +1,39 @@
 [%- USE Comma -%]
 
+<script>
+$(document).ready( function () {
+  $('#query-form').submit(function( event ) {
+    event.preventDefault();
+    var query = $('#query').val();
+    $('#search-results').html('Searching for &quot;' + query + '&quot;...');
+    $.get('http://tools.gramene.org/rest/search.html?query=' + query, 
+      function (html) { $('#search-results').html(html) }
+    );
+  });
+});
+</script>
+
+<div align="center">
+<form id="query-form" class="form-inline" role="form">
+  <div class="form-group">
+    <label class="sr-only" for="query">Search for</label>
+    <input type="text" class="form-control" id="query">
+  </div>
+  <button type="submit" class="grm-search-btn">Search</button>
+</form>
+</div>
+
+<div class="container" id="search-results"></div>
+
+[% IF query %]
+<div class="container">
 Found [% results.num_hits | comma %] result[% IF results.num_hits != 1; 's'; END %] in [% results.time %].
 
 [% FOREACH hit IN results.data %]
 <p>
-  <a href="[% hit.url %]">[% hit.title %]</a> ([% hit.score %])<br/>
-  [% hit.excerpt %]
+  [% hit.url %]: [% hit.title %]</a> ([% hit.score %])<br/>
+  [% hit.content %]
 </p>
+[% END %]
+</div>
 [% END %]

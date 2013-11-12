@@ -1,0 +1,4 @@
+<h1>View module &quot;[% module %] - [% table %]&quot;</h1>
+<hr/>
+
+id = [% id %]

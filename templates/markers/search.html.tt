@@ -1,0 +1,9 @@
+<div class="container">
+Found these markers:
+
+<ul>
+[% FOREACH marker IN markers %]
+ <li><a href="/markers/id/[% marker %]">[% marker %]</a></li>
+[% END %]
+</ul>
+</div>

@@ -1,0 +1,9 @@
+<div class="container">
+We have the following ontology types:
+
+<ul>
+[% FOREACH type IN types %]
+ <li><a href="/ontology/[% type %]">[% type %]</a></li>
+[% END %]
+</ul>
+</div>

@@ -1,0 +1,9 @@
+.grm-search-btn {
+  border: 0;
+  border-radius: 5px;
+  //padding: 0 10px 0 10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  color: white;
+  background: #547a73;
+}

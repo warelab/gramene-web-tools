@@ -2,8 +2,8 @@ package Grm::Web::Root;
 
 use Mojo::Base 'Mojolicious::Controller';
 
-# This action will render a template
-sub welcome {
+# ----------------------------------------------------------------------
+sub home {
     my $self = shift;
 
     $self->layout('default');

@@ -10,14 +10,14 @@
 
     <title>Gramene Web Tools</title>
 
-    <!-- Bootstrap core CSS -->
-    <link href="/css/bootstrap.css" rel="stylesheet">
     <link href="/css/grm-style.css" rel="stylesheet">
 
-    <!-- Custom styles for this template -->
-    <link href="/css/jumbotron-narrow.css" rel="stylesheet">
+    <!-- Bootstrap core CSS -->
+    <link href="/css/bootstrap.css" rel="stylesheet">
 
-    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <!-- Custom styles for this template -->
+    <link href="/css/navbar.css" rel="stylesheet">
+
     <!-- Just for debugging purposes. Don't actually copy this line! -->
     <!--[if lt IE 9]><script src="/js/ie8-responsive-file-warning.js"></script><![endif]-->
 
@@ -31,22 +31,35 @@
   <body>
 
     <div class="container">
-      <div class="header">
-        <ul class="nav nav-pills pull-right">
+
+      <!-- Static navbar -->
+      <div class="navbar navbar-default">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="/"><img src="/img/gramene_logo_small.gif"></a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
             [% FOREACH url IN [ 'search', 'ontology', 'markers' ] %]
                 [% USE String cur_url = c.req.url %]
                 <li[% IF cur_url.match( url ); ' class="active"'; END %]><a href="/[% url %]">[% url | ucfirst %]</a></li>
             [% END %]
-        </ul>
-        <h3 class="text-muted"><img src="/img/gramene_logo_small.png"</h3>
+          </ul>
+        </div><!--/.nav-collapse -->
       </div>
 
-
-      <div class="container">
-        [% content %]
-      </div>
-
+      [% content %]
     </div> <!-- /container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="../../dist/js/bootstrap.min.js"></script>
   </body>
 </html>
-
