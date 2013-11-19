@@ -38,7 +38,7 @@
                 <li[% IF cur_url.match( url ); ' class="active"'; END %]><a href="/[% url %]">[% url | ucfirst %]</a></li>
             [% END %]
         </ul>
-        <h3 class="text-muted"><img src="/img/gramene_logo_small.png"</h3>
+        <a href="http://www.gramene.org"><img src="/img/gramene_logo_small.png"></a>
       </div>
 
 

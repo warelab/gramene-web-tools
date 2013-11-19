@@ -1,15 +1,31 @@
 [%- USE Comma -%]
 
-[% IF results %]
-<div class="container">
-[% SET num = results.response.numFound %]
-Found [% num | comma %] result[% IF num != 1; 's'; END %] in [% results.time %].
-
-[% FOREACH hit IN results.response.docs %]
-<p>
-  <a target="_blank" href="/view/[% hit.id %]">[% hit.title %]</a><br/>
-  [% hit.content.join('<br>') %]
-</p>
-[% END %]
+[% IF results.error %]
+<div class="well">
+  Error: [% results.error %] [% IF results.code %] (Code: [% results.code %])[% END %]
 </div>
 [% END %]
+
+[% SET num = results.response.numFound %]
+
+[% IF num > 0 %]
+  <div class="container">
+  <div align="center">
+  [% pager %]
+  </div>
+
+  <br/>
+  [% FOREACH hit IN results.response.docs %]
+  <p>
+    [% SET hit_id = hit.id %]
+    [% hit.id %]<br/>
+    <a target="_blank" href="/view/[% hit_id %]">[% hit.title %]</a><br/>
+    [% hit.content.join('<br/>') %]
+  </p>
+  [% END %]
+  </div>
+[% END %]
+
+<div align="center">
+<em><small>Search took [% results.time %].</small></em>
+</div>

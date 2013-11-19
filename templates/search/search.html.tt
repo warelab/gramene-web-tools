@@ -1,16 +1,47 @@
 [%- USE Comma -%]
 
 <script>
+function getParameterByName(name) {
+  var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+  return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function get_page(query) {
+  var page_num = $('#page_num').val() || 1;
+
+  $('#search-results').html(
+    '<div align="center">Searching for &quot;' + query + '&quot;...</div>'
+  );
+
+  $.get('http://tools.gramene.org/rest/search.html?query=' + query +
+    '&page_num=' + page_num,
+    function (html) { $('#search-results').html(html) }
+  );
+}
+
 $(document).ready( function () {
   $('#query-form').submit(function( event ) {
     event.preventDefault();
     var query = $('#query').val();
-    $('#search-results').html('Searching for &quot;' + query + '&quot;...');
-    $.get('http://tools.gramene.org/rest/search.html?query=' + query, 
-      function (html) { $('#search-results').html(html) }
-    );
+
+    get_page(query);
+
+//    $('#search-results').html(
+//      '<div align="center">Searching for &quot;' + query + '&quot;...</div>'
+//    );
+//
+//    $.get('http://tools.gramene.org/rest/search.html?query=' + query, 
+//      function (html) { $('#search-results').html(html) }
+//    );
   });
+
+  var query = getParameterByName('query');
+  if (query != undefined) {
+    $('#query').val(query);
+    $('#query-form').submit();
+  }
 });
+
 </script>
 
 <div align="center">
@@ -23,17 +54,6 @@ $(document).ready( function () {
 </form>
 </div>
 
+<br/>
+
 <div class="container" id="search-results"></div>
-
-[% IF query %]
-<div class="container">
-Found [% results.num_hits | comma %] result[% IF results.num_hits != 1; 's'; END %] in [% results.time %].
-
-[% FOREACH hit IN results.data %]
-<p>
-  [% hit.url %]: [% hit.title %]</a> ([% hit.score %])<br/>
-  [% hit.content %]
-</p>
-[% END %]
-</div>
-[% END %]
