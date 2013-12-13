@@ -6,39 +6,64 @@ function getParameterByName(name) {
   return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
 }
 
-function get_page(query) {
+function show_loading_gif() {
+  $('#search-results').html(
+    '<div class="text-center">' 
+    + '<img src="/img/spinner10.gif"><br/>'
+    + 'Searching ...</div>'
+  );
+}
+
+function exec_search(url) {
+  show_loading_gif();
+
+  var get_url = "[% config.url_base %]" + url;
+
+  $.ajax({
+    url: get_url,
+    type: "GET",
+    success: function (html) { $('#search-results').html(html) },
+    error: function (xhr, text_status, error_thrown) { 
+      $('#search-results').html(
+        '<div class="well text-center">'
+        + text_status 
+        + " calling &quot;" + url + "&quot;"
+        + " (" 
+        + error_thrown 
+        + ")<br/>"
+        + xhr.responseText
+        + "</div>"
+      );
+    },
+  });
+}
+
+function get_page(qry_string) {
   var page_num = $('#page_num').val() || 1;
 
-  $('#search-results').html(
-    '<div align="center">Searching for &quot;' + query + '&quot;...</div>'
-  );
-
-  $.get('http://tools.gramene.org/rest/search.html?query=' + query +
-    '&page_num=' + page_num,
-    function (html) { $('#search-results').html(html) }
+  exec_search( 
+    "[% c.url_for('/rest/search.html') %]?" 
+    + qry_string
+    + '&facet_mincount=1'
+    + '&page_num=' + page_num 
   );
 }
 
 $(document).ready( function () {
   $('#query-form').submit(function( event ) {
     event.preventDefault();
+
     var query = $('#query').val();
 
-    get_page(query);
-
-//    $('#search-results').html(
-//      '<div align="center">Searching for &quot;' + query + '&quot;...</div>'
-//    );
-//
-//    $.get('http://tools.gramene.org/rest/search.html?query=' + query, 
-//      function (html) { $('#search-results').html(html) }
-//    );
+    get_page( 'query=' + query );
   });
 
   var query = getParameterByName('query');
+
   if (query != undefined) {
     $('#query').val(query);
-    $('#query-form').submit();
+    var qry_string = document.URL.split('?')[1];
+    get_page( qry_string );
   }
 });
 
@@ -56,4 +81,11 @@ $(document).ready( function () {
 
 <br/>
 
-<div class="container" id="search-results"></div>
+<div class="container" id="search-results">
+  <div class="well text-center">
+    Search for something, why don't you? Perhaps 
+    <a href="[% c.req.url %]?query=alcohol+dehydrogenase">Alcohol dehydrogenase</a> 
+    or <a href="[% c.req.url %]?query=kinase">kinase</a>.
+
+  </div>
+</div>

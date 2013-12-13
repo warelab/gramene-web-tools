@@ -1,0 +1,11 @@
+url_base: "http://tools.gramene.org"
+
+page_size: 20
+
+view:
+  template:
+    ensembl.*-gene: "view/ensembl-gene"
+    pathway.*-pathway: "pathway"
+
+  link:
+    ensembl.*-gene: "TT:http://www.gramene.org/[% hit.module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% object.display_xref.display_label OR object.stable_id OR object.id %]"

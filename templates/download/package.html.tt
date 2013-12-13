@@ -1,0 +1,4 @@
+<h1>Package</h1>
+
+Objects 
+<pre>[% USE dumper; dumper.dump(obj_ids) %]</pre>

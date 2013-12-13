@@ -7,3 +7,18 @@
   color: white;
   background: #547a73;
 }
+
+em {
+  color: #ea8e75;
+}
+
+/* 2nd level */
+.tree > li > label {
+  padding:10px 15px;
+}
+
+/* 3rd level */
+.tree > li > ul > li > a {
+  font-size:10pt;
+  margin-left:15px;
+}

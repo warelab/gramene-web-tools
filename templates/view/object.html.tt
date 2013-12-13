@@ -2,3 +2,4 @@
 <hr/>
 
 id = [% id %]
+obj = <pre>[% USE dumper; dumper.dump(obj) %]</pre>

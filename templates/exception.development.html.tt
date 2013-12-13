@@ -1,1 +1,1 @@
-Ain't nobody got time for this.
+[% exception.message %]

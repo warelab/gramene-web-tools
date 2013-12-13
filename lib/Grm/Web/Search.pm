@@ -46,6 +46,7 @@ sub search {
             $self->render( 
                 results => $res,
                 query   => $query,
+                config  => $self->config,
             );
         },
         txt => sub { 
