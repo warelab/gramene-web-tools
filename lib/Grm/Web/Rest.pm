@@ -10,6 +10,7 @@ use Data::Pageset;
 use lib '/usr/local/gramene-lib/lib';
 use Grm::Config;
 use Grm::Search;
+use Grm::DB;
 use Grm::Utils qw( 
     camel_case commify iterative_search_values timer_calc pager 
 );
@@ -52,31 +53,40 @@ sub info {
 sub search {
     my $self      = shift;
     my $req       = $self->req;
-    my $query     = squish($req->param('query') || '');
+    my $query     = squish(trim($req->param('query') || ''));
     my $web_conf  = $self->config;
-    my $config    = Grm::Config->new->get('search');
-    my $solr_url  = $config->{'solr'}{'url'} or die 'No Solr URL';
+    my $gconfig   = Grm::Config->new;
+    my $sconfig   = $gconfig->get('search');
+    my $solr_url  = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
     my $search    = Grm::Search->new;
     my $timer     = timer_calc();
     my $results   = {};
     my $ua        = LWP::UserAgent->new;
     my $page_size = $web_conf->{'page_size'};
+    my $odb       = Grm::Ontology->new;
 
     $ua->agent('GrmSearch/0.1');
 
+    my %fq;
     if ( $query ) {
-        $query =~ s/ /+/g;
-        my $get_url = sprintf( $solr_url . $URL, $query );
-        my $params = $req->params->to_hash;
-        #print STDERR "params = ", Dumper($params), "\n";
-        my %fq;
+        ( my $url_query = $query ) =~ s/ /+/g;
+        my $get_url = sprintf( $solr_url . $URL, $url_query );
+        $req->param( query => $query ); # ensure not multi-valued
+        my $params  = $req->params->to_hash;
+        print STDERR "params = ", Dumper($params), "\n"; use Data::Dumper;
+
         while ( my ( $key, $value ) = each %$params ) {
             next if $key eq 'query';
             my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
             if ( $key eq 'fq' ) {
                 for my $fq_val ( @values ) {
-                    my ( $facet_name, $facet_val ) = split( /=/, $fq_val );
+                    my ( $facet_name, $facet_val ) = split( /:/, $fq_val, 2 );
                     if ( defined $facet_val && $facet_val =~ /\w+/ ) {
+                        if ( $facet_name eq 'species' ) {
+                            $facet_val = lc $facet_val;
+                            $facet_val =~ s/\s+/_/g;
+                        }
+
                         push @{ $fq{ $facet_name } }, $facet_val;
                     }
                 }
@@ -96,18 +106,6 @@ sub search {
                     trim(unquote(url_unescape($val)))
                 );
             }
-
-#                if ( scalar @$values > 1 ) {
-#                    $get_url .= sprintf( '&fq=%s%%3D(%s)',
-#                        $facet_name, 
-#                        join( '+OR+', @$values )
-#                    );
-#                }
-#                else {
-#                    $get_url .= sprintf( '&fq=%s%%3D%s', 
-#                        $facet_name, $values->[0] 
-#                    );
-#                }
         }
 
         $get_url .= '&rows=' . $page_size;
@@ -150,27 +148,10 @@ sub search {
             $self->render( json => $results );
         },
         html => sub { 
-#            my $res = WebService::Solr::Response->new($resul);
-#            for my $doc ( $res->docs ) {
-#                print $doc->value_for('id'), "\n";
-#            }
-#            my $pager = $res->pager;
-            my $form_action = sprintf( q['javascript:get_page("%s")'], $query );
-
-#            my $pager  = pager(
-#                count            => $results->{'response'}{'numFound'},
-#                current_page     => $req->param('page_num'),
-#                url              => $self->url_for('/rest/search'),
-#                form_action      => $form_action,
-#                click_action     => $form_action,
-#                entries_per_page => 25,
-#            );
-#
-            my $pager;
+            my ( $pager, @suggestions );
             my $num_found = $results->{'response'}{'numFound'} || 0;
             if ( $num_found > 0 ) {
                 my $conf      = Grm::Config->new->get('search');
-                my $list_cols = $conf->{'list_columns'};
                 my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
 
                 for my $doc ( @{ $results->{'response'}{'docs'} || [] } ) {
@@ -197,7 +178,7 @@ sub search {
                         my $db      = Grm::DB->new( $module );
                         my $schema  = $db->schema;
                         my $rs_name = camel_case( $table );
-                        my $obj     = $schema->resultset( $rs_name )->find( $pk );
+                        my $obj     = $schema->resultset($rs_name)->find($pk);
                         my $tt      = Template->new;
                         my $tmp;
                         $tt->process( 
@@ -235,23 +216,142 @@ sub search {
                 my %ont_facets;
                 while ( my ($term, $count) = splice(@ontologies, 0, 2) ) {
                     ( my $prefix = $term ) =~ s/:.*//;
+                    my ($Term) = $odb->db->schema->resultset('Term')->search({
+                        term_accession => $term
+                    });
+
+                    if ( $Term ) {
+                        if ( my $term_name = $Term->name ) {
+                            $term = sprintf '%s (%s)', $term, $term_name;
+                        }
+                    }
+
                     push @{ $ont_facets{ $prefix } }, ( $term, $count );
                 }
+
                 $facets{'ontology'} = \%ont_facets;
 
                 $results->{'facet_counts'}{'facet_fields'} = \%facets;
             }
+            else {
+                # looks like a chr:range, e.g., 
+                # "11 : 14375589-14373565"
+                # or
+                # "12:17360493...17361111"
+                my %fq_species = map { $_, 1 } @{ $fq{'species'} || [] };
+                if ( 
+                    $query =~ /^
+                        (\w+)            # seq_region name (chr, scaffold)
+                        \s*              # maybe space
+                        :                # literal colon
+                        \s*              # maybe space
+                        ([\d,]+)         # start
+                        \s*              # maybe space
+                        (?:\.{2,3}|[-])  # either ellipses (2 or 3) or dash
+                        \s*              # maybe space
+                        ([\d,]+)         # stop
+                    $/xms 
+                ) {
+                    my ( $chr, $start, $stop ) = ( $1, $2, $3 );
+                    my $url_query = $chr . '%3A' . $start . '-' . $stop;
+
+                    SPECIES:
+                    for my $ens_species (
+                        grep { /^ensembl_/ } $gconfig->get('modules')
+                    ) {
+                        ( my $species = $ens_species ) =~ s/^ensembl_//;
+                        if ( %fq_species && !$fq_species{ $species } ) {
+                            next SPECIES;
+                        }
+
+                        my $db = Grm::DB->new( $ens_species );
+                        my ($count) = $db->dbh->selectrow_array(
+                            q[
+                                select count(*) 
+                                from   seq_region 
+                                where  name=?
+                                and    length>?
+                            ],
+                            {},
+                            ( $chr, $stop )
+                        );
+
+                        next unless $count > 0;
+
+                        my $url_species = $db->alias || $species;
+                        ( my $display = $species ) =~ s/_/ /g;
+                        push @suggestions, {
+                            url => sprintf(
+                                'http://ensembl.gramene.org/%s/'.
+                                'Location/View?r=%s',
+                                ucfirst( $url_species ),
+                                $url_query,
+                            ),
+                            title => sprintf( 
+                                'Ensembl %s &quot;%s&quot;</a>',
+                                ucfirst( $display ),
+                                $query,
+                            )
+                        };
+                    }
+                }
+            }
 
             $self->render( 
-                config  => $web_conf,
-                results => $results,
-                pager   => $pager,
+                config      => $web_conf,
+                results     => $results,
+                pager       => $pager,
+                suggestions => \@suggestions,
             );
         },
         txt => sub { 
             $self->render( text => Dumper( $results ) );
         },
     );
+}
+
+# ----------------------------------------------------------------------
+sub ontology {
+    my $self = shift;
+    my $req  = $self->req;
+    my $odb  = Grm::Ontology->new;
+    my $term = $req->param('term') || '';
+
+    my $term_acc = '';
+    my $prefixes = join( '|', $odb->get_ontology_accession_prefixes );
+    if ( $term =~ /^(?:$prefixes):\d+/ ) {
+        my ($Term) = $odb->db->schema->resultset('Term')->search({
+            term_accession => $term
+        });
+
+        if ( $Term ) {
+            $self->redirect_to( '/view/ontology/term/' . $Term->id );
+        }
+    }
+
+    $self->redirect_to( '/search', { query => $term } );
+
+#    $self->layout(undef);
+#
+#    $self->respond_to(
+#        json => sub { 
+#            $self->render( 
+#                json => { 
+#                    term => $term,
+#                    Term => $Term,
+#                } 
+#            ) 
+#        },
+#        html => sub {
+#            $self->render( 
+#                term => $term,
+#                Term => $Term,
+#            )
+#        },
+#        txt => sub { 
+#            $self->render( text => $term );
+#        },
+#    );
 }
 
 # ----------------------------------------------------------------------

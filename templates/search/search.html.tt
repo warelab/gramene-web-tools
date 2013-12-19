@@ -50,14 +50,6 @@ function get_page(qry_string) {
 }
 
 $(document).ready( function () {
-  $('#query-form').submit(function( event ) {
-    event.preventDefault();
-
-    var query = $('#query').val();
-
-    get_page( 'query=' + query );
-  });
-
   var query = getParameterByName('query');
 
   if (query != undefined) {
@@ -70,10 +62,10 @@ $(document).ready( function () {
 </script>
 
 <div align="center">
-<form id="query-form" class="form-inline" role="form">
+<form id="query-form" class="form-inline" role="form" method="GET" action="[% c.req.url %]">
   <div class="form-group">
     <label class="sr-only" for="query">Search for</label>
-    <input type="text" class="form-control" id="query">
+    <input type="text" class="form-control" id="query" name="query">
   </div>
   <button type="submit" class="grm-search-btn">Search</button>
 </form>
@@ -84,8 +76,11 @@ $(document).ready( function () {
 <div class="container" id="search-results">
   <div class="well text-center">
     Search for something, why don't you? Perhaps 
-    <a href="[% c.req.url %]?query=alcohol+dehydrogenase">Alcohol dehydrogenase</a> 
-    or <a href="[% c.req.url %]?query=kinase">kinase</a>.
+    <a href="[% c.req.url %]?query=alcohol+dehydrogenase">Alcohol dehydrogenase</a>,
+    <a href="[% c.req.url %]?query=PAD4">PAD4</a>,
+    <a href="[% c.req.url %]?query=kinase">kinase</a>,
+    or 
+    <a href="[% c.req.url %]?query=waxy">waxy</a>.
 
   </div>
 </div>

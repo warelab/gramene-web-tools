@@ -13,46 +13,26 @@ sub search {
     my $search = Grm::Search->new;
 #    my $timer  = timer_calc();
     my $req    = $self->req;
-    my $query  = $req->param('query') || '';
     my $res    = {};
-
-    if ( $query ) {
-        my $format   = $req->param('fmt')      || 'json';
-        my $db       = $req->param('db')       || '';
-        my $category = $req->param('category') || '';
-        my $taxonomy = $req->param('taxonomy') || '';
-
-        for my $t ( iterative_search_values( $query ) ) {
-#            $res         =  $search->search_mysql(
-#                query    => $t, 
-#                category => $category,
-#                taxonomy => $taxonomy,
-#                db       => $db,
-#            );
-#
-#            last if $res->{'num_hits'} > 0;
-        }
-
-#        $res->{'time'} = $timer->();
-    }
 
     $self->layout('default');
 
-    $self->respond_to(
-        json => sub {
-            $self->render( json => $res );
-        },
-        html => sub { 
-            $self->render( 
-                results => $res,
-                query   => $query,
-                config  => $self->config,
-            );
-        },
-        txt => sub { 
-            $self->render( text => Dumper($res) );
-        },
-    );
+    $self->render();
+
+#    $self->respond_to(
+#        json => sub {
+#            $self->render( json => $res );
+#        },
+#        html => sub { 
+#            $self->render( 
+#                results => $res,
+#                config  => $self->config,
+#            );
+#        },
+#        txt => sub { 
+#            $self->render( text => Dumper($res) );
+#        },
+#    );
 }
 
 1;

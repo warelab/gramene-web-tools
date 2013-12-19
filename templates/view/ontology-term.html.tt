@@ -1,0 +1,20 @@
+[% SET term=obj %]
+<h1>Ontology Term &quot;[% term.name %]&quot;</h1>
+
+<div class="panel panel-default">
+<table class="table">
+  <tr>
+    <th>Term Accession:</th>
+    <td>[% term.term_accession %]</a>
+    </td>
+  </tr>
+  <tr>
+    <th>Definition:</th>
+    <td>[% term.definition %]</td>
+  </tr>
+</table>
+</div>
+
+<!--
+obj = <pre>[% USE dumper; dumper.dump(species_name) %]</pre>
+-->

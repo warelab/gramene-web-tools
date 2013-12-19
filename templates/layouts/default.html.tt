@@ -25,12 +25,12 @@
     <div class="container">
       <div class="header">
         <ul class="nav nav-pills pull-right">
-            [% FOREACH url IN [ 'search', 'ontology', 'markers' ] %]
+            [% FOREACH url IN [ 'search', 'ontology' ] %]
                 [% USE String cur_url = c.req.url %]
                 <li[% IF cur_url.match( url ); ' class="active"'; END %]><a href="/[% url %]">[% url | ucfirst %]</a></li>
             [% END %]
         </ul>
-        <a href="http://www.gramene.org"><img src="/img/gramene_logo_small.png"></a>
+        <a href="http://www.gramene.org"><img src="/img/gramene_logo.png"></a>
       </div>
     </div> <!-- /container -->
 

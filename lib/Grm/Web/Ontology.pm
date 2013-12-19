@@ -4,14 +4,18 @@ use Mojo::Base 'Mojolicious::Controller';
 use Data::Dumper;
 
 use lib '/usr/local/gramene-lib/lib';
+use Grm::DB;
 use Grm::Search;
 use Grm::Utils qw( camel_case commify iterative_search_values timer_calc );
+use List::MoreUtils qw( uniq );
 
 # ----------------------------------------------------------------------
 sub list {
-    my $self = shift;
-
-    my @types = qw( go po to gro eo gr_tax );
+    my $self   = shift;
+    my $odb    = Grm::DB->new('ontology');
+    my $schema = $odb->schema;
+    my @types  = sort 
+        uniq( map { $_->prefix } $schema->resultset('TermType')->all );
 
     $self->layout('default');
 
@@ -26,6 +30,15 @@ sub list {
             $self->render( text => Dumper({ types => \@types }) );
         },
     );
+}
+
+# ----------------------------------------------------------------------
+sub search {
+    my $self = shift;
+
+    $self->layout('default');
+
+    $self->render;
 }
 
 1;

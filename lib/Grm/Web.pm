@@ -31,7 +31,9 @@ sub startup {
 
     $r->get('/rest/search')->to('rest#search');
 
-    $r->get('/ontology')->to('ontology#list');
+    $r->get('/rest/ontology')->to('rest#ontology');
+
+    $r->get('/ontology')->to('ontology#search');
 
     $r->get('/markers')->to('markers#search');
 

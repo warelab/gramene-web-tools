@@ -8,41 +8,43 @@ function toggle_download_btn (event) {
     $('#download-btn').prop( 'disabled', true );
 }
 
-function refine (event, options) {
-  event.preventDefault();
-
+function refine (options) {
   if ( options === undefined ) {
     options = {};
   }
 
-  var qry_string = $("form").serialize();
+  var qry_string = $('#facets-form').serialize();
+  //var qry_string = '';
   var fq_remove  = options['fq_remove'];
   var page_num   = options['page_num'];
+  console.log('fq_remove = ' + fq_remove);
 
   if ( fq_remove != undefined ) {
-    var fqs = $('input[name=fq][type=hidden]');
     qry_string = 'query=' + $('#query').val();
 
+    var fqs = $('input[name=fq][type=hidden]');
     for (var i = 0, len = fqs.length; i < len; i++ ) {
       var fq = fqs[i];
       var val = fq.value;
+      console.log('checking fq ' + fq + ' val = ' + val);
       if ( val != fq_remove ) { 
+        console.log('val ok');
         qry_string += '&fq=' + val;
       }
     }
   }
-  //else if ( $('input:checked').length === 0 ) {
-    //alert('nothing selected!');
-  //}
 
   if ( page_num ) {
     qry_string += '&page_num=' + page_num;
   }
 
+  var url = "http://tools.gramene.org/rest/search.html?" + qry_string;
+  //alert(url);
+
   show_loading_gif();
 
   $.ajax({
-    url: "[% c.url_for('/rest/search.html') %]" + '?' + qry_string,
+    url: url,
     type: "GET",
     success: function (html) { $('#search-results').html(html) },
     error: function (xhr, text_status, error_thrown) { 
@@ -56,7 +58,7 @@ function refine (event, options) {
         + xhr.responseText
         + "</div>"
       );
-    },
+    }
   });
 }
 
@@ -71,7 +73,7 @@ function download (event) {
 
 function select_all_toggle (event) {
   event.preventDefault();
-  console.log('cur = ' + $('#select-all-btn').val());
+  //console.log('cur = ' + $('#select-all-btn').val());
   var set_checked = $('#select-all-btn').val() == 'Select All' ? true : false;
   console.log('set checked = ' + set_checked);
   $('input[name=obj_id]').each(function() {
@@ -90,11 +92,12 @@ function select_all_toggle (event) {
         SET facet_name = f.0;
         SET facet_num  = f.1;
         NEXT UNLESS facet_name;
-        SET facet_name_uri = facet_name | uri;
+        SET facet_name_uri = facet_name.replace(' (.*)', '');# | uri;
         SET text = 
             ' <input type="checkbox" name="fq"'
           _ ' id="fq_' _ fq_num _ '"'
-          _ ' value="' _ facet_fld _ '=%22' _ facet_name_uri _ '%22"'
+          _ ' value="' _ facet_fld _ ':%22' _ facet_name_uri _ '%22"'
+          _ ' onclick="refine()"'
           _ '>&nbsp;'
           _  facet_name.ucfirst.replace('_', ' ') 
           _ ' <span class="badge pull-right">' _ facet_num _ '</span>'
@@ -117,7 +120,7 @@ function select_all_toggle (event) {
 [% IF num > 0 %]
 <div class="container">
   <div class="col-md-4">
-    <form>
+    <form id="facets-form">
     <div id="sidebar" class="panel-group">
       <div class="panel panel-default">
         <div class="panel-heading">
@@ -132,9 +135,9 @@ function select_all_toggle (event) {
             [% FOREACH param IN fq_params %]
               <ul class="list-group">
               [% FOREACH val = c.req.param(param).list.sort %]
-                [% SET fq = val.split('='); SET fq_name = fq.0; SET fq_val = fq.1.remove('%22').remove('"'); NEXT UNLESS fq_val.length > 0 %]
+                [% SET fq = val.match('([^:]*?):(.*)'); SET fq_name = fq.0; SET fq_val = fq.1.remove('%22').remove('"'); NEXT UNLESS fq_val.length > 0 %]
                 <li class="list-group-item">
-                <a hlogref="" onclick="javascript:refine(event, { fq_remove: '[% val %]') }">
+                <a href="" onclick="javascript:refine({'fq_remove': '[% val.trim %]'})">
                   [% fq_name.replace('_', ' ').ucfirst %] &quot;[% fq_val.ucfirst.replace('_', ' ') %]&quot;<span class="glyphicon glyphicon-remove-circle pull-right"></span><br/>
                   <input type="hidden" name="[% param %]" value="[% val %]">
                 </a>
@@ -144,16 +147,16 @@ function select_all_toggle (event) {
             [% END %]
           [% END %]
           <div>
-            <span class="pull-left">
+            <span class="text-center">
             Found [% num | comma %].
             </span>
-            <input type="button" class="btn btn-default pull-right" value="Refine" onclick="javascript:refine(event);return false;">
           </div>
         </div>
       </div>
 
       [% SET i=0; SET facets = results.facet_counts.facet_fields %]
       [% FOREACH facet_fld IN facets.keys.sort %]
+        [% NEXT UNLESS facets.$facet_fld.size > 0 %]
         <div class="panel panel-default">
           <div class="panel-heading">
             <div class="panel-title">
@@ -191,7 +194,7 @@ function select_all_toggle (event) {
     <div class="text-center">
     <ul class="pagination">
       [% FOREACH page IN pager.pages_in_set %]
-      <li[% IF page == pager.current_page %] class="active"[% END %]><a href="" onclick="javascript:refine(event, { 'page_num': '[% page %]'}); return false;">[% page %]</a></li>
+      <li[% IF page == pager.current_page %] class="active"[% END %]><a href="" onclick="javascript:refine({ 'page_num': '[% page %]'}); return false;">[% page %]</a></li>
       [% END %]
     </ul>
     </div>
@@ -201,7 +204,7 @@ function select_all_toggle (event) {
     <p>
       [% SET hit_id = hit.id %]
       <input type="checkbox" name="obj_id" value="[% hit.id %]" onclick="toggle_download_btn(event)">
-      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.species.ucfirst.replace('_', ' ') %] [% hit.object %] &quot;[% hit.title | truncate(40) %]&quot;</a> <a target="_blank" href="/view/[% hit_id %]">view</a><br/>
+      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a> <a target="_blank" href="/view/[% hit_id %]">[GrmView]</a><br/>
       [% hit.content.join('<br/>') %]
     </p>
     [% END %]
@@ -218,14 +221,24 @@ function select_all_toggle (event) {
   </div>
 </div>
 [% ELSE %]
-  <div class="row text-center">
+  <div class="well text-center">
     Sorry, I couldn't find anything for &quot;[% c.req.param('query') %]&quot;
     If you think that's a problem, please 
     <a href="http://www.gramene.org/contact">contact us</a>.
+  </div>
+  [% IF suggestions.size > 0 %]
+    <div class="row">
+    Perhaps you'd like to try one of the following?<br/>
+    <ul>
+    [% FOREACH suggestion IN suggestions %]
+      <li><a href="[% suggestion.url %]">[% suggestion.title %]</a></li>
+    [% END %]
+    </ul>
+    </div>
+  [% END %]
   </div>
 [% END %]
 
 <!--
 <pre>[% USE dumper; dumper.dump(results) %]</pre>
 -->
-
