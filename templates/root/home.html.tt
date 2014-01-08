@@ -1,5 +1,7 @@
 [% title = 'Gramene Web Tools' %]
 
+<div class="container">
 Welcome to Gramene's Web Tools.
 
 Here you can search, look for markers, browse ontologies.
+</div>

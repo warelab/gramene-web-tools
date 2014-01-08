@@ -1,0 +1,20 @@
+<div class="container">
+[% IF terms.size > 0 %]
+  <table class="table">
+    <tr>
+      <th>Acc.</th>
+      <th>Name</th>
+      <th>&nbsp;</th>
+    </tr>
+    [% FOREACH term IN terms %]
+      <tr>
+        <td>[% term.term_accession %]</td>
+        <td>[% term.name %]</td>
+        <td><a href="/view/ontology/term/[% term.term_id %]">View</a></td>
+      </tr>
+    [% END %]
+  </table>
+[% ELSE %]
+  Nothing found for &quot;[% query %]&quot;
+[% END %]
+</div>

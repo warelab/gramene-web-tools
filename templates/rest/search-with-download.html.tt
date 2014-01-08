@@ -1,5 +1,13 @@
 [%- USE Comma; SET fq_num = 1 -%]
 <script>
+function toggle_download_btn (event) {
+  var checked = $('input[name=obj_id]:checked');
+  if ( checked.length > 0 ) 
+    $('#download-btn').prop( 'disabled', false );
+  else 
+    $('#download-btn').prop( 'disabled', true );
+}
+
 function refine (event, options) {
   event.preventDefault();
 
@@ -29,6 +37,42 @@ function refine (event, options) {
   }
 
   window.location.href = "http://tools.gramene.org/search?" + qry_string;
+}
+
+function foo () {
+  var url = "http://tools.gramene.org/rest/search.html?" + qry_string;
+
+  show_loading_gif();
+
+  $.ajax({
+    url: url,
+    type: "GET",
+    success: function (html) { $('#search-results').html(html); },
+    error: function (xhr, text_status, error_thrown) { 
+      $('#search-results').html(
+        '<div class="well text-center">' + text_status + " calling &quot;" + url + "&quot;" + " (" + error_thrown + ")<br/>" + xhr.responseText + "</div>"
+      );
+    }
+  });
+}
+
+function download (event) {
+  event.preventDefault();
+  var ids = [];
+  $('input[name=obj_id]:checked').each(function() {
+    ids.push( $(this).val() );
+  });
+  alert('selected ids = ' + ids.join(', '));
+}
+
+function select_all_toggle (event) {
+  event.preventDefault();
+  var set_checked = $('#select-all-btn').val() == 'Select All' ? true : false;
+  $('input[name=obj_id]').each(function() {
+    $(this).prop('checked', set_checked);
+  });
+  $('#select-all-btn').attr('value', set_checked ? 'Unselect All' : 'Select All');
+  toggle_download_btn();
 }
 </script>
 
@@ -94,19 +138,22 @@ function refine (event, options) {
               </ul>
             [% END %]
           [% END %]
-          <div class="text-center">
-            Found [% num | comma %] in [% IF results.time < 0.01; "under 1ms"; ELSE; results.time; END %].
+          <div>
+            <span class="text-center">
+            Found [% num | comma %].
+            </span>
           </div>
         </div>
       </div>
 
       [% SET i=0; SET facets = results.facet_counts.facet_fields %]
-      [% FOREACH facet_fld IN [ 'species', 'object', 'ontology' ] # facets.keys.sort %]
+      [% FOREACH facet_fld IN facets.keys.sort %]
         [% NEXT UNLESS facets.$facet_fld.size > 0 %]
         <div class="panel panel-default">
           <div class="panel-heading">
             <div class="panel-title">
-            <a data-toggle="collapse" data-parent="#sidebar" href="#collapse-[% i %]">[% facet_fld.ucfirst.replace('_', ' ') %]</a>
+            <a data-toggle="collapse" data-parent="#sidebar" href="#collapse-[% i %]">[% facet_fld.ucfirst.replace('_', ' ') %]
+            </a>
             </div>
           </div>
 
@@ -135,14 +182,6 @@ function refine (event, options) {
   </div>
 
   <div class="col-md-8">
-    [% FOREACH hit IN results.response.docs %]
-    <p>
-      [% SET hit_id = hit.id %]
-      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
-      [% hit.content.join('<br/>') %]
-    </p>
-    [% END %]
-
     [% IF pager %]
     <div class="text-center">
     <ul class="pagination">
@@ -152,23 +191,42 @@ function refine (event, options) {
     </ul>
     </div>
     [% END %]
+    <form id="selector-form" method="POST" action="[% c.url_for('/download/package') %]">
+    [% FOREACH hit IN results.response.docs %]
+    <p>
+      [% SET hit_id = hit.id %]
+      <input type="checkbox" name="obj_id" value="[% hit.id %]" onclick="toggle_download_btn(event)">
+      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
+      [% hit.content.join('<br/>') %]
+    </p>
+    [% END %]
+    <div class="text-center">
+    <input id="select-all-btn" type="button" class="btn btn-default" value="Select All" onclick="javascript:select_all_toggle(event)">
+    <input id="download-btn" type="submit" class="btn btn-default" disabled="disabled" value="Download Selected">
+    <input id="download-all-btn" type="submit" class="btn btn-default" value="Download All">
+    </div>
+    </form>
+
+    <div class="row text-center">
+      <small>Search took [% results.time %].</small>
+    </div>
   </div>
 </div>
 [% ELSE %]
+  <div class="well text-center">
+    Sorry, I couldn't find anything for &quot;[% c.req.param('query') %]&quot;
+    If you think that's a problem, please 
+    <a href="http://www.gramene.org/contact">contact us</a>.
+  </div>
   [% IF suggestions.size > 0 %]
-    <div class="well">
-      Did you mean?<br/>
-      <ul>
-      [% FOREACH suggestion IN suggestions %]
-        <li><a href="[% suggestion.url %]">[% suggestion.title %]</a></li>
-      [% END %]
-      </ul>
-    </div>
-  [% ELSE %]
-    <div class="well text-center">
-      Sorry, I couldn't find anything for &quot;[% c.req.param('query') %]&quot;
-      If you think that's a problem, please 
-      <a href="http://www.gramene.org/contact">contact us</a>.
+    <div class="row">
+    Perhaps you'd like to try one of the following?<br/>
+    <ul>
+    [% FOREACH suggestion IN suggestions %]
+      <li><a href="[% suggestion.url %]">[% suggestion.title %]</a></li>
+    [% END %]
+    </ul>
     </div>
   [% END %]
+  </div>
 [% END %]

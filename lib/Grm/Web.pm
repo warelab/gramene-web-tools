@@ -31,7 +31,11 @@ sub startup {
 
     $r->get('/rest/search')->to('rest#search');
 
-    $r->get('/rest/ontology')->to('rest#ontology');
+    $r->get('/rest/ontology_search')->to('rest#ontology_search');
+
+    $r->get('/rest/ontology_associations/:term_id')->to(
+        'rest#ontology_associations'
+    );
 
     $r->get('/ontology')->to('ontology#search');
 

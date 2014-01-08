@@ -9,6 +9,30 @@ view:
     ontology-term: "view/ontology-term"
 
   link:
-    ensembl.*-gene: "TT:http://ensembl.gramene.org/[% hit.module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% object.display_xref.display_label OR object.stable_id OR object.id %]"
+    ensembl.*-gene: "TT:http://ensembl.gramene.org/[% ensembl_species OR module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% stable_id OR object.display_xref.display_label OR object.stable_id OR object.id %]"
 
-    ensembl.*-marker: "TT:http://ensembl.gramene.org/[% hit.module.replace('^ensembl_', '') %]/Marker/Details?db=core;m=[% object.display_marker_synonym.name %]"
+    ensembl.*-marker: "TT:http://ensembl.gramene.org/[% module.replace('^ensembl_', '') %]/Marker/Details?db=core;m=[% object.display_marker_synonym.name %]"
+
+    pathway_arabidopsis_thaliana-search: "TT:http://pathway.gramene.org/ARA/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_brachypodium_distachyon-search: "TT:http://pathway.gramene.org/BRACY/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_capsicum_anuum-search: "TT:http://pathway.gramene.org/CAP/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_coffea_canephora-search: "TT:http://pathway.gramene.org/COFFEA/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_medicago_truncatula-search: "TT:http://pathway.gramene.org/MEDIC/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_oryza_sativa-search: "TT:http://pathway.gramene.org/RICE/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_populus_trichocarpa-search: "TT:http://pathway.gramene.org/POPLAR/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_solanum_lycopersicum-search: "TT:http://pathway.gramene.org/LYCO/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_solanum_tuberosum-search: "TT:http://pathway.gramene.org/POTATO/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    pathway_sorghum_bicolor-search: "TT:http://pathway.gramene.org/Sorghum/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+        
+    pathway_zea_mays-search: "TT:http://pathway.gramene.org/MAIZE/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
+
+    reactome_oryza_sativa-reactome: "TT:http://plantreactome.gramene.org/entitylevelview/PathwayBrowser.html#DB=test_slice_oryza_sativa_05&FOCUS_SPECIES_ID=186860&FOCUS_PATHWAY_ID=[% object.pathway_id %]&ID=[% object.object_id %]"

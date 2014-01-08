@@ -6,8 +6,10 @@ use Mojo::Base 'Mojolicious::Controller';
 sub home {
     my $self = shift;
 
-    $self->layout('default');
-    $self->render();
+    $self->redirect_to('/search');
+
+#    $self->layout('default');
+#    $self->render();
 }
 
 1;

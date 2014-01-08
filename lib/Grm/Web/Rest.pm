@@ -1,11 +1,17 @@
 package Grm::Web::Rest;
 
 use strict;
+
 use Mojo::Base 'Mojolicious::Controller';
-use Mojo::Util qw( squish trim unquote url_unescape );
+
 use Data::Dumper;
-use Mail::Sendmail qw( sendmail );
 use Data::Pageset;
+use JSON qw( encode_json decode_json );
+use LWP::UserAgent;
+use List::MoreUtils qw( uniq );
+use Mail::Sendmail qw( sendmail );
+use Mojo::Util qw( squish trim unquote url_unescape );
+use Readonly;
 
 use lib '/usr/local/gramene-lib/lib';
 use Grm::Config;
@@ -14,11 +20,8 @@ use Grm::DB;
 use Grm::Utils qw( 
     camel_case commify iterative_search_values timer_calc pager 
 );
-use LWP::UserAgent;
-use Readonly;
-use JSON qw( encode_json decode_json );
 
-Readonly my $URL => '/select?q=text:%%22%s%%22&wt=json&hl=true&hl.fl=content' .
+Readonly my $URL => '/select?q=text:%s&wt=json&hl=true&hl.fl=content' .
     '&hl.simple.pre=<em>&hl.simple.post=</em>' .
     '&facet=true&facet.mincount=1' .
     '&facet.field=species' .
@@ -69,11 +72,14 @@ sub search {
 
     my %fq;
     if ( $query ) {
-        ( my $url_query = $query ) =~ s/ /+/g;
-        my $get_url = sprintf( $solr_url . $URL, $url_query );
+        my $url_query = $query;
+        $url_query    =~ s/\b([a-zA-Z]{2,3}:\d{5,6})/%22$1%22/g;
+        $url_query    =~ s/ /+/g;
+        my $get_url   = sprintf( $solr_url . $URL, $url_query );
+
         $req->param( query => $query ); # ensure not multi-valued
+
         my $params  = $req->params->to_hash;
-        print STDERR "params = ", Dumper($params), "\n"; use Data::Dumper;
 
         while ( my ( $key, $value ) = each %$params ) {
             next if $key eq 'query';
@@ -115,10 +121,7 @@ sub search {
             $get_url .= '&start=' . ($page_num - 1) * $page_size;
         }
 
-        print STDERR "getting '$get_url'\n";
-
-        #my @ens_hits = $search->_search_ensembl( $query );
-        #print STDERR "ens = ", Dumper(\@ens_hits), "\n";
+        #print STDERR "getting '$get_url'\n";
 
         my $req = HTTP::Request->new( GET => $get_url );
         my $res = $ua->request($req);
@@ -163,32 +166,12 @@ sub search {
                     }
 
                     my ( $module, $table, $pk ) = split /\//, $id;
-                    my $test  = join '-', $module, $table;
-
-                    my $link_tmpl = '';
-                    for my $key ( %view_link ) {
-                        if ( $test eq $key || $test =~ /$key/ ) {
-                            $link_tmpl = $view_link{ $key };
-                            last;
-                        }
-                    }
-
-                    if ( $link_tmpl =~ /^TT:(.+)/ ) {
-                        my $tt_tmpl = $1;
-                        my $db      = Grm::DB->new( $module );
-                        my $schema  = $db->schema;
-                        my $rs_name = camel_case( $table );
-                        my $obj     = $schema->resultset($rs_name)->find($pk);
-                        my $tt      = Template->new;
-                        my $tmp;
-                        $tt->process( 
-                            \$tt_tmpl, 
-                            { hit => $doc, object => $obj }, 
-                            \$tmp 
-                        ) or $tmp = $tt->error;
-
-                        $doc->{'url'} = $tmp;
-                    }
+                    $doc->{'url'} = make_web_link(
+                        link_conf => \%view_link,
+                        module    => $module,
+                        table     => $table,
+                        id        => $pk,
+                    );
                 }
 
                 if ( $num_found > $page_size ) {
@@ -238,7 +221,7 @@ sub search {
                 # "11 : 14375589-14373565"
                 # or
                 # "12:17360493...17361111"
-                my %fq_species = map { $_, 1 } @{ $fq{'species'} || [] };
+                my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
                 if ( 
                     $query =~ /^
                         (\w+)            # seq_region name (chr, scaffold)
@@ -311,47 +294,195 @@ sub search {
 }
 
 # ----------------------------------------------------------------------
-sub ontology {
-    my $self = shift;
-    my $req  = $self->req;
-    my $odb  = Grm::Ontology->new;
-    my $term = $req->param('term') || '';
+sub ontology_search {
+    my $self         = shift;
+    my $query        = $self->param('query')        || '';
+    my $term_type_id = $self->param('term_type_id') || '';
 
-    my $term_acc = '';
-    my $prefixes = join( '|', $odb->get_ontology_accession_prefixes );
-    if ( $term =~ /^(?:$prefixes):\d+/ ) {
-        my ($Term) = $odb->db->schema->resultset('Term')->search({
-            term_accession => $term
-        });
+    my @terms;
+    if ( $query ) {
+        my @cols     = qw( term_id name term_accession );
+        my $odb      = Grm::Ontology->new;
+        my $schema   = $odb->db->schema;
+        my @term_ids = $odb->search( 
+            query        => $query,
+            term_type_id => $term_type_id,
+        );
 
-        if ( $Term ) {
-            $self->redirect_to( '/view/ontology/term/' . $Term->id );
+        for my $term_id ( @term_ids ) {
+            my $Term = $schema->resultset('Term')->find( $term_id );
+            push @terms, { map { $_, $Term->$_() } @cols };
         }
     }
 
-    $self->redirect_to( '/search', { query => $term } );
+    $self->layout(undef);
 
-#    $self->layout(undef);
-#
-#    $self->respond_to(
-#        json => sub { 
-#            $self->render( 
-#                json => { 
-#                    term => $term,
-#                    Term => $Term,
-#                } 
-#            ) 
-#        },
-#        html => sub {
-#            $self->render( 
-#                term => $term,
-#                Term => $Term,
-#            )
-#        },
-#        txt => sub { 
-#            $self->render( text => $term );
-#        },
-#    );
+    $self->respond_to(
+        json => sub { 
+            $self->render( json => { terms => \@terms } ) 
+        },
+
+        html => sub {
+            $self->render( 
+                terms        => \@terms,
+                query        => $query,
+                term_type_id => $term_type_id,
+            )
+        },
+
+        txt => sub { 
+            $self->render( text => Dumper(\@terms) ),
+        },
+
+        tab  => sub { 
+            if ( @terms > 0 ) {
+                my $tab  = "\t";
+                my @cols = sort keys %{ $terms[0] };
+                my @data;
+                push @data, join( $tab, @cols );
+                for my $term ( @terms ) {
+                    push @data, join( $tab, map { $term->{ $_ } } @cols );
+                }
+
+                $self->render( text => join( "\n", @data ) );
+            }
+            else {
+                $self->render( text => 'None' );
+            }
+        },
+    );
+}
+
+# ----------------------------------------------------------------------
+sub ontology_associations {
+    my $self     = shift;
+    my $term_id  = $self->param('term_id')        || '';
+    my $term_acc = $self->param('term_accession') || '';
+    my $odb      = Grm::Ontology->new;
+
+    if ( !$term_id && $term_acc ) {
+        my @term_ids = $odb->search( $term_acc );
+        $term_id = shift @term_ids;
+    }
+
+    my @associations = $term_id 
+        ? $odb->get_term_associations( term_id => $term_id )
+        : ();
+
+    my $web_conf  = $self->config;
+    my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
+
+    for my $assoc ( @associations ) {
+        if ( $assoc->{'object_type'} =~ /^GR_(ensembl_(\w+))_(gene)$/ ) {
+            my $module          = $1;
+            my $ensembl_species = $2;
+            my $table           = $3;
+
+            $assoc->{'url'}     = make_web_link(
+                link_conf       => \%view_link,
+                module          => $module,
+                table           => $table,
+                ensembl_species => ucfirst $ensembl_species,
+                stable_id       => $assoc->{'object_accession_id'},
+            );
+        }
+    }
+
+    $self->layout(undef);
+
+    $self->respond_to(
+        json => sub { 
+            $self->render( json => { associations => \@associations } ) 
+        },
+
+        html => sub { 
+            my @species = sort { $a cmp $b } 
+                uniq( map { $_->{'object_species'} } @associations ),
+            ;
+
+            if ( my $species = lc $self->param('species') ) {
+                $species =~ s/_/ /g;
+                @associations = 
+                    grep { lc $_->{'object_species'} eq $species }
+                    @associations
+                ;
+            }
+
+            $self->render( 
+                associations => \@associations,
+                species      => \@species,
+            );
+        },
+
+        txt  => sub { $self->render( text => Dumper(\@associations) ) },
+
+        tab  => sub { 
+            if ( @associations > 0 ) {
+                my $tab  = "\t";
+                my @cols = sort keys %{ $associations[0] };
+                my @data;
+                push @data, join( $tab, @cols );
+                for my $assoc ( @associations ) {
+                    push @data, join( $tab, map { $assoc->{ $_ } } @cols );
+                }
+
+                $self->render( text => join( "\n", @data ) );
+            }
+            else {
+                $self->render( text => 'None' );
+            }
+        },
+    );
+}
+        
+# ----------------------------------------------------------------------
+sub make_web_link {
+    my %args      = @_;
+    my $link_conf = $args{'link_conf'} || {};
+    my $module    = $args{'module'}    || '';
+    my $table     = $args{'table'}     || '';
+    my $id        = $args{'id'}        || '';
+    my $doc       = $args{'doc'}       || {};
+    my $test      = join '-', $module, $table;
+    my $link_tmpl = '';
+
+    for my $key ( sort keys %$link_conf ) {
+        if ( $test eq $key || $test =~ /$key/ ) {
+            $link_tmpl = $link_conf->{ $key };
+            last;
+        }
+    }
+
+    my $url = '';
+    if ( $link_tmpl =~ /^TT:(.+)/ ) {
+        my $tt_tmpl = $1;
+        my $obj     = {};
+
+        if ( $id ) {
+            my $db      = Grm::DB->new( $module );
+            my $schema  = $db->schema;
+            my $rs_name = camel_case( $table );
+            $obj        = $schema->resultset( $rs_name )->find( $id );
+        }
+
+        my $tt = Template->new;
+
+        $tt->process( 
+            \$tt_tmpl, 
+            { 
+                object => $obj,
+                %args
+            }, 
+            \$url 
+        ) or $url = $tt->error;
+    }
+    else {
+        if ( $module && $table && $id ) {
+            $url = "/view/$module/$table/$id";
+        }
+    }
+
+    return $url;
 }
 
 # ----------------------------------------------------------------------

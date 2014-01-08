@@ -9,7 +9,7 @@ function getParameterByName(name) {
 function show_loading_gif() {
   $('#search-results').html(
     '<div class="text-center">' 
-    + '<img src="/img/spinner10.gif"><br/>'
+    + '<img src="/img/loading.gif"><br/>'
     + 'Searching ...</div>'
   );
 }
@@ -22,7 +22,7 @@ function exec_search(url) {
   $.ajax({
     url: get_url,
     type: "GET",
-    success: function (html) { $('#search-results').html(html) },
+    success: function (html) { $('#search-results').html(html); },
     error: function (xhr, text_status, error_thrown) { 
       $('#search-results').html(
         '<div class="well text-center">'
@@ -42,10 +42,7 @@ function get_page(qry_string) {
   var page_num = $('#page_num').val() || 1;
 
   exec_search( 
-    "[% c.url_for('/rest/search.html') %]?" 
-    + qry_string
-    + '&facet_mincount=1'
-    + '&page_num=' + page_num 
+    "[% c.url_for('/rest/search.html') %]?" + qry_string + '&page_num=' + page_num 
   );
 }
 
