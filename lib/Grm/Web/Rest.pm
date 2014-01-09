@@ -13,7 +13,7 @@ use Mail::Sendmail qw( sendmail );
 use Mojo::Util qw( squish trim unquote url_unescape );
 use Readonly;
 
-use lib '/usr/local/gramene-lib/lib';
+use lib '/usr/local/gramene-40/gramene-lib/lib';
 use Grm::Config;
 use Grm::Search;
 use Grm::DB;
@@ -73,7 +73,8 @@ sub search {
     my %fq;
     if ( $query ) {
         my $url_query = $query;
-        $url_query    =~ s/\b([a-zA-Z]{2,3}:\d{5,6})/%22$1%22/g;
+        #$url_query    =~ s/\b([a-zA-Z]{2,3}:\d{5,6})/%22$1%22/g;
+        $url_query    =~ s/\b(.*[:].*)/%22$1%22/g;
         $url_query    =~ s/ /+/g;
         my $get_url   = sprintf( $solr_url . $URL, $url_query );
 
@@ -85,10 +86,15 @@ sub search {
             next if $key eq 'query';
             my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
             if ( $key eq 'fq' ) {
+                FQ_VAL:
                 for my $fq_val ( @values ) {
                     my ( $facet_name, $facet_val ) = split( /:/, $fq_val, 2 );
                     if ( defined $facet_val && $facet_val =~ /\w+/ ) {
                         if ( $facet_name eq 'species' ) {
+                            if ( lc $facet_val eq 'multi' ) {
+                                next FQ_VAL;
+                            }
+
                             $facet_val = lc $facet_val;
                             $facet_val =~ s/\s+/_/g;
                         }
@@ -199,15 +205,24 @@ sub search {
                 my %ont_facets;
                 while ( my ($term, $count) = splice(@ontologies, 0, 2) ) {
                     ( my $prefix = $term ) =~ s/:.*//;
-                    my ($Term) = $odb->db->schema->resultset('Term')->search({
-                        term_accession => $term
-                    });
-
-                    if ( $Term ) {
-                        if ( my $term_name = $Term->name ) {
-                            $term = sprintf '%s (%s)', $term, $term_name;
-                        }
+                    if ( my $term_name = $odb->db->dbh->selectrow_array(
+                            'select name from term where term_accession=?',
+                            {},
+                            $term
+                        )
+                    ) {
+                        $term = sprintf '%s (%s)', $term, $term_name;
                     }
+
+#                    my ($Term) = $odb->db->schema->resultset('Term')->search({
+#                        term_accession => $term
+#                    });
+#
+#                    if ( $Term ) {
+#                        if ( my $term_name = $Term->name ) {
+#                            $term = sprintf '%s (%s)', $term, $term_name;
+#                        }
+#                    }
 
                     push @{ $ont_facets{ $prefix } }, ( $term, $count );
                 }
@@ -224,7 +239,7 @@ sub search {
                 my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
                 if ( 
                     $query =~ /^
-                        (\w+)            # seq_region name (chr, scaffold)
+                        ([\w.-]+)        # seq_region name (chr, scaffold)
                         \s*              # maybe space
                         :                # literal colon
                         \s*              # maybe space

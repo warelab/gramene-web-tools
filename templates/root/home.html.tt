@@ -3,5 +3,6 @@
 <div class="container">
 Welcome to Gramene's Web Tools.
 
-Here you can search, look for markers, browse ontologies.
+Here you can <a href="/search">search</a> all our data as well
+as <a href="/ontology">our ontologies</a>.
 </div>

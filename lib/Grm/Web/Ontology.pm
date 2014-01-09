@@ -3,7 +3,7 @@ package Grm::Web::Ontology;
 use Mojo::Base 'Mojolicious::Controller';
 use Data::Dumper;
 
-use lib '/usr/local/gramene-lib/lib';
+use lib '/usr/local/gramene-40/gramene-lib/lib';
 use Grm::DB;
 use Grm::Ontology;
 use Grm::Utils qw( camel_case commify iterative_search_values timer_calc );
