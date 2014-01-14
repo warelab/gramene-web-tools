@@ -8,6 +8,7 @@ use Data::Dumper;
 use Data::Pageset;
 use JSON qw( encode_json decode_json );
 use LWP::UserAgent;
+use List::Util qw( max );
 use List::MoreUtils qw( uniq );
 use Mail::Sendmail qw( sendmail );
 use Mojo::Util qw( squish trim unquote url_unescape );
@@ -65,6 +66,7 @@ sub search {
     my $timer     = timer_calc();
     my $results   = {};
     my $ua        = LWP::UserAgent->new;
+    my $page_num  = $req->param('page_num');
     my $page_size = $web_conf->{'page_size'};
     my $odb       = Grm::Ontology->new;
 
@@ -73,12 +75,17 @@ sub search {
     my %fq;
     if ( $query ) {
         my $url_query = $query;
-        #$url_query    =~ s/\b([a-zA-Z]{2,3}:\d{5,6})/%22$1%22/g;
         $url_query    =~ s/\b(.*[:].*)/%22$1%22/g;
         $url_query    =~ s/ /+/g;
         my $get_url   = sprintf( $solr_url . $URL, $url_query );
 
-        $req->param( query => $query ); # ensure not multi-valued
+        if ( ref $page_num eq 'ARRAY' ) {
+            $page_num = max( $page_num );
+        }
+
+        # ensure not multi-valued
+        $req->param( query => $query ); 
+        $req->param( page_num => $page_num );
 
         my $params  = $req->params->to_hash;
 
@@ -122,7 +129,6 @@ sub search {
 
         $get_url .= '&rows=' . $page_size;
 
-        my $page_num = $req->param('page_num');
         if ( $page_num > 1 ) {
             $get_url .= '&start=' . ($page_num - 1) * $page_size;
         }
@@ -183,9 +189,8 @@ sub search {
                 if ( $num_found > $page_size ) {
                     $pager = Data::Pageset->new({
                         total_entries    => $num_found,
-                        current_page     => $req->param('page_num') || 1,
-                        entries_per_page => 
-                            scalar @{ $results->{'response'}{'docs'} },
+                        current_page     => $page_num,
+                        entries_per_page => $page_size,
                     });
                 }
 

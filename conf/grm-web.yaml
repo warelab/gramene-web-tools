@@ -35,4 +35,4 @@ view:
         
     pathway_zea_mays-search: "TT:http://pathway.gramene.org/MAIZE/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
 
-    reactome_oryza_sativa-reactome: "TT:http://plantreactome.gramene.org/entitylevelview/PathwayBrowser.html#DB=test_slice_oryza_sativa_05&FOCUS_SPECIES_ID=186860&FOCUS_PATHWAY_ID=[% object.pathway_id %]&ID=[% object.object_id %]"
+    reactome_oryza_sativa-reactome: "TT:http://plantreactome.gramene.org/entitylevelview/PathwayBrowser.html#DB=test_slice_oryza_sativa_06&FOCUS_SPECIES_ID=186860&FOCUS_PATHWAY_ID=[% object.pathway_id %]&ID=[% object.object_id %]"
