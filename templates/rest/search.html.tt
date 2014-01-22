@@ -76,7 +76,7 @@ function refine (event, options) {
         </div>
 
         <div class="panel-body">
-          <input type="hidden" name="query" value="[% c.req.param('query') %]">
+          <input type="hidden" name="query" value='[% c.req.param('query') %]'>
           [% SET params = c.req.params.to_hash %]
           [% SET fq_params = params.keys.grep('^fq$').sort %]
           [% IF fq_params.size > 0 %]
