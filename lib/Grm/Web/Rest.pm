@@ -74,6 +74,7 @@ sub search {
 
     my %fq;
     if ( $query ) {
+        $self->app->log->info( "query: $query" );
         my $url_query = $query;
         $url_query    =~ s/\b(.*[:].*)/%22$1%22/g;
         $url_query    =~ s/ /+/g;

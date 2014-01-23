@@ -2,6 +2,7 @@ package Grm::Web;
 
 use File::Spec::Functions;
 use Mojo::Base 'Mojolicious';
+use Mojo::Log;
 
 sub startup {
     my $self = shift;
@@ -11,6 +12,13 @@ sub startup {
     $self->plugin('yaml_config', { 
         file => $self->home->rel_file('conf/grm-web.yaml')
     });
+
+    $self->log( 
+        Mojo::Log->new(
+            path  => $self->home->rel_file('logs/mojo.log'),
+            level => 'info'
+        )
+    );
 
     # Documentation browser under "/perldoc"
     $self->plugin('PODRenderer');
