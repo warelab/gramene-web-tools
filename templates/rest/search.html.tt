@@ -95,7 +95,7 @@ function refine (event, options) {
             [% END %]
           [% END %]
           <div class="text-center">
-            Found [% num | comma %] in [% IF results.time < 0.01; "under 1ms"; ELSE; results.time; END %].
+            Found [% num | comma %] in [% results.time %].
           </div>
         </div>
       </div>
