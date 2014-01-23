@@ -19,6 +19,7 @@
     <link href="/css/jquery.tocify.css" rel="stylesheet" />
     <link href="/css/grm-style.css" rel="stylesheet" />
     <link href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+    <link rel="search" type="application/opensearchdescription+xml" href="http://tools.gramene.org/opensearch.xml" title="Gramene Search" />
 
   <script>
     (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
