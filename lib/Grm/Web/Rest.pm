@@ -74,7 +74,6 @@ sub search {
 
     my %fq;
     if ( $query ) {
-        $self->app->log->info( "query: $query" );
         my $url_query = $query;
         $url_query    =~ s/\b(.*[:].*)/%22$1%22/g;
         $url_query    =~ s/ /+/g;
@@ -148,15 +147,25 @@ sub search {
                 error => $res->message,
             };
 
-#                report_error( sprintf(
-#                    "Problem querying %s for '%s': %s",
-#                    $URL,
-#                    $query,
-#                    $res->status_line,
-#                ));
+            $self->app->log->error( 
+                sprintf(
+                    "Problem (%s) query: %s",
+                    $res->status_line,
+                    $query,
+                )
+            );
         }
 
         $results->{'time'} = $timer->();
+
+        $self->app->log->info( 
+            sprintf( 
+                "query! num: %s; time: %s; string: %s", 
+                $results->{'response'}{'numFound'} || 0,
+                $results->{'time'},
+                $query,
+            )
+        );
     }
 
     $self->respond_to(
