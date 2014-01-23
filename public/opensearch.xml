@@ -1,0 +1,10 @@
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+   <ShortName>Gramene</ShortName>
+   <Description>Search Gramene</Description>
+   <Url type="text/html" method="get" template="http://tools.gramene.org/search?query={searchTerms}"/>
+   <Image height="16" width="16" type="image/vnd.microsoft.icon">
+http://tools.gramene.org/ico/favicon.ico
+   </Image>
+   <moz:SearchForm>http://tools.gramene.org/search</moz:SearchForm>
+   <Url type="application/opensearchdescription+xml" rel="self" template="http://tools.gramene.org/opensearch.xml"/>
+</OpenSearchDescription>
