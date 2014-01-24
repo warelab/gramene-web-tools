@@ -159,8 +159,7 @@ sub search {
 
         $self->app->log->info( 
             sprintf( 
-                "query! ip := %s, num := %s, time := %s, string := %s", 
-                $self->tx->remote_address,
+                "query! num := %s, time := %s, string := %s", 
                 $results->{'response'}{'numFound'} || 0,
                 $results->{'time'},
                 $req->params,
