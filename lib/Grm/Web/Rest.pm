@@ -133,10 +133,9 @@ sub search {
             $get_url .= '&start=' . ($page_num - 1) * $page_size;
         }
 
-        #print STDERR "getting '$get_url'\n";
+        $self->app->log->debug( "getting '$get_url'" );
 
-        my $req = HTTP::Request->new( GET => $get_url );
-        my $res = $ua->request($req);
+        my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
 
         if ( $res->is_success ) {
             $results = decode_json($res->content);
@@ -160,10 +159,11 @@ sub search {
 
         $self->app->log->info( 
             sprintf( 
-                "query! num: %s; time: %s; string: %s", 
+                "query! ip := %s, num := %s, time := %s, string := %s", 
+                $self->tx->remote_address,
                 $results->{'response'}{'numFound'} || 0,
                 $results->{'time'},
-                $query,
+                $req->params,
             )
         );
     }
