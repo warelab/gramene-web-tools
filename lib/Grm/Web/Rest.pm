@@ -55,21 +55,22 @@ sub info {
 
 # ----------------------------------------------------------------------
 sub search {
-    my $self      = shift;
-    my $session   = $self->session;
-    my $req       = $self->req;
-    my $query     = squish(trim(url_unescape($req->param('query') || '')));
-    my $web_conf  = $self->config;
-    my $gconfig   = Grm::Config->new;
-    my $sconfig   = $gconfig->get('search');
-    my $solr_url  = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
-    my $search    = Grm::Search->new;
-    my $timer     = timer_calc();
-    my $results   = {};
-    my $ua        = LWP::UserAgent->new;
-    my $page_num  = $req->param('page_num');
-    my $page_size = $web_conf->{'page_size'};
-    my $odb       = Grm::Ontology->new;
+    my $self        = shift;
+    my $session     = $self->session;
+    my $req         = $self->req;
+    my $query       = squish(trim(url_unescape($req->param('query') || '')));
+    my $web_conf    = $self->config;
+    my $gconfig     = Grm::Config->new;
+    my $sconfig     = $gconfig->get('search');
+    my $solr_url    = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
+    my $search      = Grm::Search->new;
+    my $timer       = timer_calc();
+    my $results     = {};
+    my $ua          = LWP::UserAgent->new;
+    my $page_num    = $req->param('page_num') || 1;
+    my $page_size   = $web_conf->{'page_size'};
+    my $orig_params = $req->params . ''; # force stringify
+    my $odb         = Grm::Ontology->new;
 
     $ua->agent('GrmSearch/0.1');
 
@@ -88,7 +89,7 @@ sub search {
         $req->param( query => $query ); 
         $req->param( page_num => $page_num );
 
-        my $params  = $req->params->to_hash;
+        my $params = $req->params->to_hash;
 
         while ( my ( $key, $value ) = each %$params ) {
             next if $key eq 'query';
@@ -156,19 +157,19 @@ sub search {
             );
         }
 
-        $results->{'time'} = $timer->();
+        $results->{'time'} = $timer->( format => 'seconds' );
 
-        $self->app->log->info( 
-            sprintf( 
-                'search ip := %s, session := %s, num := %s, ' .
-                'time := %s, string := %s', 
-                $session->{'ip'}, 
-                $session->{'user_id'},
-                $results->{'response'}{'numFound'} || 0,
-                $results->{'time'},
-                $req->params,
-            )
-        );
+        my $search_db = Grm::DB->new('search');
+        $orig_params  =~ s/query=[^;&]+[;&]?//;
+
+        $search_db->schema->resultset('QueryLog')->create({
+            ip        => $session->{'ip'},
+            user_id   => $session->{'user_id'},
+            num_found => $results->{'response'}{'numFound'} || 0,
+            time      => $results->{'time'},
+            params    => $orig_params,
+            query     => $query,
+        });
     }
 
     $self->respond_to(

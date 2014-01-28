@@ -1,4 +1,4 @@
-[%- USE Comma; SET fq_num = 1 -%]
+[%- USE Comma; USE POSIX; SET fq_num = 1 -%]
 <script>
 function refine (event, options) {
   event.preventDefault();
@@ -23,12 +23,12 @@ function refine (event, options) {
     }
   }
 
-  var page_num   = options.page_num;
+  var page_num = options.page_num;
   if ( page_num ) {
     qry_string += '&page_num=' + page_num;
   }
 
-  window.location.href = "http://tools.gramene.org/search?" + qry_string;
+  window.location.href = "[% config.url_base %]" + "/search?" + qry_string;
 }
 </script>
 
@@ -95,14 +95,14 @@ function refine (event, options) {
             [% END %]
           [% END %]
           <div class="text-center">
-            Found [% num | comma %] in [% results.time %].
+            Found [% num | comma %] in [% IF results.time < 1; POSIX.ceil(results.time * 100) _ ' ms'; ELSE; POSIX.ceil(results.time) _ ' seconds'; END  %].
           </div>
         </div>
       </div>
 
       [% SET i=0; SET facets = results.facet_counts.facet_fields %]
       [% FOREACH facet_fld IN [ 'species', 'object', 'ontology' ] # facets.keys.sort %]
-        [% NEXT UNLESS facets.$facet_fld.size > 0 %]
+      [% SET facet_size = facets.$facet_fld.size OR 0; NEXT UNLESS facet_size > 0 %]
         <div class="panel panel-default">
           <div class="panel-heading">
             <div class="panel-title">
