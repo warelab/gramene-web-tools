@@ -39,11 +39,14 @@ function exec_search(url) {
 }
 
 function get_page(qry_string) {
-  var page_num = $('#page_num').val() || 1;
+  var url = "[% c.url_for('/rest/search.html') %]?" + qry_string;
+  var page_num = $('#page_num').val();
 
-  exec_search( 
-    "[% c.url_for('/rest/search.html') %]?" + qry_string + '&page_num=' + page_num 
-  );
+  if ( page_num > 0 ) {
+    url += '&page_num=' + page_num;
+  }
+
+  exec_search(url);
 }
 
 $(document).ready( function () {
