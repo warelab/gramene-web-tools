@@ -56,8 +56,9 @@ sub info {
 # ----------------------------------------------------------------------
 sub search {
     my $self      = shift;
+    my $session   = $self->session;
     my $req       = $self->req;
-    my $query     = squish(trim($req->param('query') || ''));
+    my $query     = squish(trim(url_unescape($req->param('query') || '')));
     my $web_conf  = $self->config;
     my $gconfig   = Grm::Config->new;
     my $sconfig   = $gconfig->get('search');
@@ -159,7 +160,10 @@ sub search {
 
         $self->app->log->info( 
             sprintf( 
-                "query! num := %s, time := %s, string := %s", 
+                'search ip := %s, session := %s, num := %s, ' .
+                'time := %s, string := %s', 
+                $session->{'ip'}, 
+                $session->{'user_id'},
                 $results->{'response'}{'numFound'} || 0,
                 $results->{'time'},
                 $req->params,
