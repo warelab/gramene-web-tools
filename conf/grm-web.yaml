@@ -1,6 +1,6 @@
 url_base: "http://apps.gramene.org"
 
-page_size: 20
+page_size: 10
 
 view:
   template:

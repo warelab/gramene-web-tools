@@ -31,6 +31,8 @@ sub startup {
     
     $r->get('/search')->to('search#search');
 
+    $r->get('/search/log')->to('search#log');
+
     $r->any('/download/package')->to('download#package');
 
     $r->get('/rest')->to('rest#info');
