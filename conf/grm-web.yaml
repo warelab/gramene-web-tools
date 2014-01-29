@@ -1,6 +1,6 @@
 url_base: "http://tools.gramene.org"
 
-page_size: 20
+page_size: 10
 
 view:
   template:

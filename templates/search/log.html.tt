@@ -1,0 +1,42 @@
+[% USE pager = Page(queries.pager.total_entries, page_size, current_page) %]
+<div class="text-center">
+  There are [% pager.total_entries %] queries.<br/>
+</div>
+
+<div class="container">
+  <table class="table">
+    <tr>
+      <th><a href="[% c.url_for('/search/log') %]?order_by=query">Query</a></th>
+      <th>Params</th>
+      <th><a href="[% c.url_for('/search/log') %]?order_by=user_id">User ID</a></th>
+      <th><a href="[% c.url_for('/search/log') %]?order_by=ip">IP</a></th>
+      <th><a href="[% c.url_for('/search/log') %]?order_by=time">Time</a></th>
+      <th><a href="[% c.url_for('/search/log') %]?order_by=date">Date</a></th>
+    </tr>
+    [% WHILE ( q = queries.next ) %]
+      <tr>
+        <td>[% q.query %]</td>
+        <td>[% q.params %]</td>
+        <td>[% q.user_id %]</td>
+        <td>[% q.ip %]</td>
+        <td>[% q.time %]</td>
+        <td>[% q.date %]</td>
+      </tr>
+    [% END %]
+  </table>
+</div>
+
+<div class="text-center">
+  [% IF pager.last_page > 1 %]
+  <ul class="pagination">
+    [% FOREACH page IN [ pager.first_page .. pager.last_page ] %]
+      <li[% IF page == pager.current_page %] class="active"[% END %]><a href="[% c.url_for('/search/log') %]?page_num=[% page %]">[% page %]</a></li>
+    [% END %]
+  </ul>
+  [% END %]
+</div>
+
+
+<!--
+<pre>[% USE dumper; dumper.dump(queries) %]</pre>
+-->

@@ -16,6 +16,7 @@ requires 'Sub::Identify'                   => '0.04';
 requires 'Template'                        => '2.25';
 requires 'Template::Plugin::Comma'         => '0.04';
 requires 'Template::Plugin::POSIX'         => '0.05';
+requires 'Template::Plugin::Page'          => '0.10';
 requires 'Variable::Magic'                 => '0.53';
 
 test_requires 'Test::More'                 => '0.98';
