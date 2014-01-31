@@ -1,4 +1,5 @@
-[% USE Comma; USE pager = Page(queries.pager.total_entries, page_size, current_page) %]
+[% USE Comma; SET pager = queries.pager %]
+
 <div class="text-center">
   There are [% pager.total_entries %] queries.<br/>
 </div>
@@ -31,8 +32,15 @@
 <div class="text-center">
   [% IF pager.last_page > 1 %]
   <ul class="pagination">
+    [% IF pager.current_page > 1 %]
+      <li><a href="[% c.url_for('/search/log') %]?page_num=[% pager.previous_page %]&order_by=[% c.req.param('order_by') OR 'date' %]"><span class="glyphicon glyphicon-backward"></span></a></li>
+    [% END %]
+    [% SET pages = [ pager.first_page ]; %]
     [% FOREACH page IN [ pager.first_page .. pager.last_page ] %]
       <li[% IF page == pager.current_page %] class="active"[% END %]><a href="[% c.url_for('/search/log') %]?page_num=[% page %]&order_by=[% c.req.param('order_by') OR 'date' %]">[% page %]</a></li>
+    [% END %]
+    [% IF pager.next_page %]
+      <li><a href="[% c.url_for('/search/log') %]?page_num=[% pager.next_page %]&order_by=[% c.req.param('order_by') OR 'date' %]"><span class="glyphicon glyphicon-forward"></span></a></li>
     [% END %]
   </ul>
   [% END %]

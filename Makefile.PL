@@ -7,8 +7,9 @@ version        '0.01';
 license        'MIT';
 
 requires 'DBI'                             => '1.630';
+requires 'DBIx::Class'                     => '0.08260';
 requires 'Moose'                           => '2.1005';
-requires 'Mojolicious'                     => '4.53';
+requires 'Mojolicious'                     => '4.72';
 requires 'Mojolicious::Plugin::TtRenderer' => '1.50';
 requires 'Mojolicious::Plugin::YamlConfig' => '0.1.5';
 requires 'Params/Validate'                 => '1.08';
