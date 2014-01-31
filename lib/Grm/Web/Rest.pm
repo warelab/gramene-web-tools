@@ -328,6 +328,75 @@ sub search {
 }
 
 # ----------------------------------------------------------------------
+sub search_log {
+    my $self      = shift;
+    my $req       = $self->req;
+    my $order_by  = $req->param('order_by')    || 'date';
+    my $page_num  = $req->param('page_num')    || '';
+    my $page_size = $self->config('page_size') || 10;
+    my $db        = Grm::DB->new('search');
+    my %args      = ( order_by => { -asc => $order_by } );
+
+    if ( $self->accepts('html') || $page_num ) {
+        $page_num     ||= 1;
+        $args{'page'}   = $page_num;
+        $args{'rows'}   = $page_size;
+        $args{'offset'} = ( $page_num - 1 ) * $page_size;
+    }
+
+    my $queries = $db->schema->resultset('QueryLog')->search_rs(
+        undef, \%args 
+    );
+
+    $queries->result_class('DBIx::Class::ResultClass::HashRefInflator');
+
+    $self->layout(undef);
+
+    $self->respond_to(
+        json => sub {
+            my %data;
+            if ( $self->param('format') eq 'dt' ) {
+                my @data;
+                if ( $queries->count > 0 ) {
+                    my @cols = qw( query num_found params user_id ip time date );
+                    while ( my $qry = $queries->next ) {
+                        push @data, [ map { $qry->{ $_ } } @cols ];
+                    }
+
+                    %data = ( aaData => \@data );
+                }
+
+                %data = ( aaData => \@data );
+            }
+            else {
+                %data = ( $queries => [ $queries->all ] );
+            }
+
+            $self->render( json => \%data );
+        },
+
+        tab  => sub { 
+            if ( $queries->count > 0 ) {
+                my $rs   = $queries->result_source;
+                my @cols = $rs->columns;
+                my $tab  = "\t";
+                my @data = ();
+                push @data, join( $tab, @cols );
+                while ( my $qry = $queries->next ) {
+                    push @data, join( $tab, map { $qry->{ $_ } } @cols );
+                }
+
+                $self->render( text => join( "\n", @data ) );
+            }
+            else {
+                $self->render( text => 'None' );
+            }
+
+        },
+    );
+}
+
+# ----------------------------------------------------------------------
 sub ontology_search {
     my $self         = shift;
     my $query        = $self->param('query')        || '';

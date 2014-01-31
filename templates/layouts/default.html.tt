@@ -9,13 +9,14 @@
     <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 
     <script src="/js/bootstrap.js"></script>
-    <script src="/js/jquery.tocify.js"></script>
+    <script src="/js/jquery.dataTables.js"></script>
 
     <link rel="shortcut icon" href="/ico/favicon.ico">
 
     <title>Gramene Web Tools</title>
 
     <link href="/css/bootstrap.css" rel="stylesheet" />
+    <link href="/css/jquery.dataTables.css" rel="stylesheet" />
     <link href="/css/jquery.tocify.css" rel="stylesheet" />
     <link href="/css/grm-style.css" rel="stylesheet" />
     <link href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />

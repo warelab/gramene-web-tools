@@ -25,54 +25,10 @@ sub search {
 sub log {
     my $self      = shift;
     my $req       = $self->req;
-    my $order_by  = $req->param('order_by')    || 'date';
-    my $page_num  = $req->param('page_num')    || 1;
-    my $page_size = $self->config('page_size') || 10;
-    my $db        = Grm::DB->new('search');
-    my %args      = ( order_by => { -asc => $order_by } );
-
-    if ( $self->accepts('html') ) {
-        $args{'page'}   = $page_num;
-        $args{'rows'}   = $page_size;
-        $args{'offset'} = ( $page_num - 1 ) * $page_size;
-    }
-
-    my $queries = $db->schema->resultset('QueryLog')->search_rs(
-        undef, \%args 
-    );
-
-    $queries->result_class('DBIx::Class::ResultClass::HashRefInflator');
 
     $self->layout('default');
 
-    $self->respond_to(
-        json => sub {
-            $self->render( json => { queries => [ $queries->all ] } );
-        },
-
-        html => sub { 
-            $self->render( queries => $queries );
-        },
-
-        tab  => sub { 
-            if ( $queries->count > 0 ) {
-                my $rs   = $queries->result_source;
-                my @cols = $rs->columns;
-                my $tab  = "\t";
-                my @data = ();
-                push @data, join( $tab, @cols );
-                while ( my $qry = $queries->next ) {
-                    push @data, join( $tab, map { $qry->{ $_ } } @cols );
-                }
-
-                $self->render( text => join( "\n", @data ) );
-            }
-            else {
-                $self->render( text => 'None' );
-            }
-
-        },
-    );
+    $self->render( config => $self->config );
 }
 
 sub make_id {

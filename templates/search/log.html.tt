@@ -1,52 +1,24 @@
-[% USE Comma; SET pager = queries.pager %]
+<script>
+$(document).ready( function () {
+  $('#queries').dataTable( {
+    'bProcessing': true,
+    'sAjaxSource': '[% config.url_base %]/rest/search_log.json?format=dt'
+  });
+});
+</script>
 
-<div class="text-center">
-  There are [% pager.total_entries %] queries.<br/>
-</div>
-
-<div class="container">
-  <table class="table">
-    <tr>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=query">Query</a></th>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=num_found">Num. Found</a></th>
-      <th>Params</th>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=user_id">User ID</a></th>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=ip">IP</a></th>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=time">Time</a></th>
-      <th><a href="[% c.url_for('/search/log') %]?order_by=date">Date</a></th>
-    </tr>
-    [% WHILE ( q = queries.next ) %]
-      <tr>
-        <td>[% q.query %]</td>
-        <td align="right">[% q.num_found | comma %]</td>
-        <td>[% q.params | truncate(40) %]</td>
-        <td>[% q.user_id %]</td>
-        <td>[% q.ip %]</td>
-        <td>[% q.time %]</td>
-        <td>[% q.date %]</td>
-      </tr>
-    [% END %]
-  </table>
-</div>
-
-<div class="text-center">
-  [% IF pager.last_page > 1 %]
-  <ul class="pagination">
-    [% IF pager.current_page > 1 %]
-      <li><a href="[% c.url_for('/search/log') %]?page_num=[% pager.previous_page %]&order_by=[% c.req.param('order_by') OR 'date' %]"><span class="glyphicon glyphicon-backward"></span></a></li>
-    [% END %]
-    [% SET pages = [ pager.first_page ]; %]
-    [% FOREACH page IN [ pager.first_page .. pager.last_page ] %]
-      <li[% IF page == pager.current_page %] class="active"[% END %]><a href="[% c.url_for('/search/log') %]?page_num=[% page %]&order_by=[% c.req.param('order_by') OR 'date' %]">[% page %]</a></li>
-    [% END %]
-    [% IF pager.next_page %]
-      <li><a href="[% c.url_for('/search/log') %]?page_num=[% pager.next_page %]&order_by=[% c.req.param('order_by') OR 'date' %]"><span class="glyphicon glyphicon-forward"></span></a></li>
-    [% END %]
-  </ul>
-  [% END %]
-</div>
-
-
-<!--
-<pre>[% USE dumper; dumper.dump(queries) %]</pre>
--->
+<table id="queries" class="display" cellpadding="0" cellspacing="0" border="0">
+<thead>
+<tr>
+  <th>Query</th>
+  <th>Num. Found</th>
+  <th>Params</th>
+  <th>User ID</th>
+  <th>IP</th>
+  <th>Time</th>
+  <th>Date</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
