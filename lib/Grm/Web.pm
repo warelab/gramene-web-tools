@@ -41,6 +41,8 @@ sub startup {
 
     $r->get('/rest/search')->to('rest#search');
 
+    $r->get('/rest/search_log')->to('rest#search_log');
+
     $r->get('/rest/ontology_search')->to('rest#ontology_search');
 
     $r->get('/rest/ontology_associations/:term_id')->to(
