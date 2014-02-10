@@ -21,6 +21,10 @@ sub startup {
         )
     );
 
+    if ( my $secret = $self->config('secret') ) {
+        $self->secrets([ $secret ]);
+    }
+
     # Documentation browser under "/perldoc"
     $self->plugin('PODRenderer');
 

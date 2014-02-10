@@ -1,5 +1,7 @@
 url_base: "http://apps.gramene.org"
 
+secret: "This land is your land, this land is my land."
+
 log_level: "info"
 
 page_size: "10"

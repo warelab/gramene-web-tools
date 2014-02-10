@@ -7,7 +7,7 @@ use lib '/usr/local/gramene-40/gramene-lib/lib';
 use Grm::Search;
 use Grm::Utils qw( camel_case commify iterative_search_values timer_calc );
 
-# This action will render a template
+# ----------------------------------------------------------------------
 sub search {
     my $self = shift;
 
