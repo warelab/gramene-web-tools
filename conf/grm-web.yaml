@@ -1,6 +1,6 @@
 url_base: "http://apps.gramene.org"
 
-log_level: "debug"
+log_level: "info"
 
 page_size: "10"
 
