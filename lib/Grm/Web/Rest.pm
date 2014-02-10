@@ -74,87 +74,101 @@ sub search {
 
     $ua->agent('GrmSearch/0.1');
 
+
     my %fq;
     if ( $query ) {
-        my $url_query = $query;
-        $url_query    =~ s/\b(.*[:].*)/%22$1%22/g;
-        $url_query    =~ s/ /+/g;
-        my $get_url   = sprintf( $solr_url . $URL, $url_query );
-
         if ( ref $page_num eq 'ARRAY' ) {
             $page_num = max( $page_num );
+            $req->param( page_num => $page_num );
         }
 
-        # ensure not multi-valued
-        $req->param( query => $query ); 
-        $req->param( page_num => $page_num );
+        for my $qry ( iterative_search_values( $query ) ) {
+            # quote the value if it has a colon as this (e.g., "GO:0001132")
+            # has special meaning to Solr (e.g., "species:Zea_mays")
+            $qry =~ s/\b(.*[:].*)/%22$1%22/g; 
+            $qry =~ s/ /+/g;
 
-        my $params = $req->params->to_hash;
+            my $get_url = sprintf( $solr_url . $URL, $qry );
 
-        while ( my ( $key, $value ) = each %$params ) {
-            next if $key eq 'query';
-            my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
-            if ( $key eq 'fq' ) {
-                FQ_VAL:
-                for my $fq_val ( @values ) {
-                    my ( $facet_name, $facet_val ) = split( /:/, $fq_val, 2 );
-                    if ( defined $facet_val && $facet_val =~ /\w+/ ) {
-                        if ( $facet_name eq 'species' ) {
-                            if ( lc $facet_val eq 'multi' ) {
-                                next FQ_VAL;
+            # ensure not multi-valued
+            $req->param( query => $qry ); 
+
+            my $params = $req->params->to_hash;
+
+            while ( my ( $key, $value ) = each %$params ) {
+                next if $key eq 'query';
+                my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
+                if ( $key eq 'fq' ) {
+                    FQ_VAL:
+                    for my $fq_val ( @values ) {
+                        my ( $facet_name, $facet_val ) 
+                            = split( /:/, $fq_val, 2 );
+
+                        if ( defined $facet_val && $facet_val =~ /\w+/ ) {
+                            if ( $facet_name eq 'species' ) {
+                                if ( lc $facet_val eq 'multi' ) {
+                                    next FQ_VAL;
+                                }
+
+                                $facet_val = lc $facet_val;
+                                $facet_val =~ s/\s+/_/g;
                             }
 
-                            $facet_val = lc $facet_val;
-                            $facet_val =~ s/\s+/_/g;
+                            push @{ $fq{ $facet_name } }, $facet_val;
                         }
-
-                        push @{ $fq{ $facet_name } }, $facet_val;
+                    }
+                }
+                else {
+                    for my $v ( @values ) {
+                        $get_url .= sprintf( '&%s=%s', $key, $v );
                     }
                 }
             }
-            else {
-                for my $v ( @values ) {
-                    $get_url .= sprintf( '&%s=%s', $key, $v );
+
+            while ( my ( $facet_name, $values ) = each %fq ) {
+                for my $val ( @$values ) {
+                    $get_url .= sprintf( 
+                        '&fq=%s:%%22%s%%22', 
+                        $facet_name, 
+                        trim(unquote(url_unescape($val)))
+                    );
                 }
             }
-        }
 
-        while ( my ( $facet_name, $values ) = each %fq ) {
-            for my $val ( @$values ) {
-                $get_url .= sprintf( 
-                    '&fq=%s:%%22%s%%22', 
-                    $facet_name, 
-                    trim(unquote(url_unescape($val)))
+            $get_url .= '&rows=' . $page_size;
+
+            if ( $page_num > 1 ) {
+                $get_url .= '&start=' . ($page_num - 1) * $page_size;
+            }
+
+            $self->app->log->debug( "getting '$get_url'" );
+
+            my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
+
+            if ( $res->is_success ) {
+                $results = decode_json($res->content);
+            }
+            else {
+                $results = { 
+                    code  => $res->code,
+                    error => $res->message,
+                };
+
+                $self->app->log->error( 
+                    sprintf(
+                        "Problem (%s) query: %s",
+                        $res->status_line,
+                        $qry,
+                    )
                 );
             }
-        }
 
-        $get_url .= '&rows=' . $page_size;
+            $self->app->log->info("found = ", $results->{'response'}{'numFound'});
 
-        if ( $page_num > 1 ) {
-            $get_url .= '&start=' . ($page_num - 1) * $page_size;
-        }
-
-        $self->app->log->debug( "getting '$get_url'" );
-
-        my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
-
-        if ( $res->is_success ) {
-            $results = decode_json($res->content);
-        }
-        else {
-            $results = { 
-                code  => $res->code,
-                error => $res->message,
-            };
-
-            $self->app->log->error( 
-                sprintf(
-                    "Problem (%s) query: %s",
-                    $res->status_line,
-                    $query,
-                )
-            );
+            if ( $results->{'response'}{'numFound'} > 0 ) {
+                $query = $qry;
+                last;
+            } 
         }
 
         $results->{'time'} = $timer->( format => 'seconds' );
@@ -232,16 +246,6 @@ sub search {
                     ) {
                         $term = sprintf '%s (%s)', $term, $term_name;
                     }
-
-#                    my ($Term) = $odb->db->schema->resultset('Term')->search({
-#                        term_accession => $term
-#                    });
-#
-#                    if ( $Term ) {
-#                        if ( my $term_name = $Term->name ) {
-#                            $term = sprintf '%s (%s)', $term, $term_name;
-#                        }
-#                    }
 
                     push @{ $ont_facets{ $prefix } }, ( $term, $count );
                 }
