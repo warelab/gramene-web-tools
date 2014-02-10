@@ -61,25 +61,77 @@ sub search {
     my $query       = squish(trim(url_unescape($req->param('query') || '')));
     my $web_conf    = $self->config;
     my $gconfig     = Grm::Config->new;
-    my $sconfig     = $gconfig->get('search');
-    my $solr_url    = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
     my $search      = Grm::Search->new;
     my $timer       = timer_calc();
     my $results     = {};
-    my $ua          = LWP::UserAgent->new;
-    my $page_num    = $req->param('page_num') || 1;
-    my $page_size   = $web_conf->{'page_size'};
+    my $page_num    = $req->param('page_num')  ||  1;
+    my $page_size   = $web_conf->{'page_size'} || 10;
     my $orig_params = $req->params . ''; # force stringify
     my $odb         = Grm::Ontology->new;
 
-    $ua->agent('GrmSearch/0.1');
-
-    my ( %fq, @suggestions );
+    my @suggestions;
     if ( $query ) {
-        # looks like a chr:range, e.g., 
+        # ensure not multi-valued
+        $req->param( query => $query ); 
+
+        #
+        # Parse out the request, figure out the "fq" facet queries
+        # Create a query string to tack onto the maing "query"
+        #
+        my $get_url_params = "&rows=$page_size";
+        my $params         = $req->params->to_hash;
+        my %fq;
+
+        while ( my ( $key, $value ) = each %$params ) {
+            next if $key eq 'query'; 
+            my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
+            if ( $key eq 'fq' ) {
+                FQ_VAL:
+                for my $fq_val ( @values ) {
+                    my ( $facet_name, $facet_val ) 
+                        = split( /:/, $fq_val, 2 );
+
+                    if ( defined $facet_val && $facet_val =~ /\w+/ ) {
+                        if ( $facet_name eq 'species' ) {
+                            if ( lc $facet_val eq 'multi' ) {
+                                next FQ_VAL;
+                            }
+
+                            $facet_val = lc $facet_val;
+                            $facet_val =~ s/\s+/_/g;
+                        }
+
+                        push @{ $fq{ $facet_name } }, $facet_val;
+                    }
+                }
+            }
+            else {
+                for my $v ( @values ) {
+                    $get_url_params .= sprintf( '&%s=%s', $key, $v );
+                }
+            }
+        }
+
+        while ( my ( $facet_name, $values ) = each %fq ) {
+            for my $val ( @$values ) {
+                $get_url_params .= sprintf( 
+                    '&fq=%s:%%22%s%%22', 
+                    $facet_name, 
+                    trim(unquote(url_unescape($val)))
+                );
+            }
+        }
+
+        if ( $page_num > 1 ) {
+            $get_url_params .= '&start=' . ($page_num - 1) * $page_size;
+        }
+
+        #
+        # See if query looks like "chr:start-stop," e.g., 
         # "11 : 14375589-14373565"
         # or
         # "12:17360493...17361111"
+        #
         if ( 
             $query =~ /^
                 ([\w.-]+)        # seq_region name (chr, scaffold)
@@ -96,6 +148,7 @@ sub search {
             my ( $chr, $start, $stop ) = ( $1, $2, $3 );
             my $url_query  = $chr . '%3A' . $start . '-' . $stop;
             my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
+            $self->app->log->info("fq species = ", Dumper(\%fq_species));
 
             SPECIES:
             for my $ens_species (
@@ -137,11 +190,20 @@ sub search {
                 };
             }
         }
+        #
+        # Looks legit, so go search Solr
+        #
         else {
             if ( ref $page_num eq 'ARRAY' ) {
                 $page_num = max( $page_num );
                 $req->param( page_num => $page_num );
             }
+
+            my $sconfig  = $gconfig->get('search');
+            my $solr_url = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
+            my $ua       = LWP::UserAgent->new;
+
+            $ua->agent('GrmSearch/0.1');
 
             for my $qry ( iterative_search_values( $query ) ) {
                 # quote the value if it has a colon as this (e.g., "GO:0001132")
@@ -149,58 +211,8 @@ sub search {
                 $qry =~ s/\b(.*[:].*)/%22$1%22/g; 
                 $qry =~ s/ /+/g;
 
-                my $get_url = sprintf( $solr_url . $URL, $qry );
-
-                # ensure not multi-valued
-                $req->param( query => $qry ); 
-
-                my $params = $req->params->to_hash;
-
-                while ( my ( $key, $value ) = each %$params ) {
-                    next if $key eq 'query';
-                    my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
-                    if ( $key eq 'fq' ) {
-                        FQ_VAL:
-                        for my $fq_val ( @values ) {
-                            my ( $facet_name, $facet_val ) 
-                                = split( /:/, $fq_val, 2 );
-
-                            if ( defined $facet_val && $facet_val =~ /\w+/ ) {
-                                if ( $facet_name eq 'species' ) {
-                                    if ( lc $facet_val eq 'multi' ) {
-                                        next FQ_VAL;
-                                    }
-
-                                    $facet_val = lc $facet_val;
-                                    $facet_val =~ s/\s+/_/g;
-                                }
-
-                                push @{ $fq{ $facet_name } }, $facet_val;
-                            }
-                        }
-                    }
-                    else {
-                        for my $v ( @values ) {
-                            $get_url .= sprintf( '&%s=%s', $key, $v );
-                        }
-                    }
-                }
-
-                while ( my ( $facet_name, $values ) = each %fq ) {
-                    for my $val ( @$values ) {
-                        $get_url .= sprintf( 
-                            '&fq=%s:%%22%s%%22', 
-                            $facet_name, 
-                            trim(unquote(url_unescape($val)))
-                        );
-                    }
-                }
-
-                $get_url .= '&rows=' . $page_size;
-
-                if ( $page_num > 1 ) {
-                    $get_url .= '&start=' . ($page_num - 1) * $page_size;
-                }
+                my $get_url = sprintf( $solr_url . $URL, $qry ) 
+                            . $get_url_params;
 
                 $self->app->log->debug( "getting '$get_url'" );
 
@@ -254,6 +266,7 @@ sub search {
         json => sub {
             $self->render( json => $results );
         },
+
         html => sub { 
             my $pager;
             my $num_found = $results->{'response'}{'numFound'} || 0;
@@ -326,6 +339,7 @@ sub search {
                 suggestions => \@suggestions,
             );
         },
+        
         txt => sub { 
             $self->render( text => Dumper( $results ) );
         },
