@@ -1,6 +1,6 @@
 use inc::Module::Install;
 
-name           'Grm-API';
+name           'Grm-Web';
 abstract       'Mojolicious version of Gramene REST/Web API';
 author         'Ken Youens-Clark <kclark@cshl.edu>';
 version        '0.01';
