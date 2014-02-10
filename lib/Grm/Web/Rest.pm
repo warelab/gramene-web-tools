@@ -74,116 +74,180 @@ sub search {
 
     $ua->agent('GrmSearch/0.1');
 
-
-    my %fq;
+    my ( %fq, @suggestions );
     if ( $query ) {
-        if ( ref $page_num eq 'ARRAY' ) {
-            $page_num = max( $page_num );
-            $req->param( page_num => $page_num );
+        # looks like a chr:range, e.g., 
+        # "11 : 14375589-14373565"
+        # or
+        # "12:17360493...17361111"
+        if ( 
+            $query =~ /^
+                ([\w.-]+)        # seq_region name (chr, scaffold)
+                \s*              # maybe space
+                :                # literal colon
+                \s*              # maybe space
+                ([\d,]+)         # start
+                \s*              # maybe space
+                (?:\.{2,3}|[-])  # either ellipses (2 or 3) or dash
+                \s*              # maybe space
+                ([\d,]+)         # stop
+            $/xms 
+        ) {
+            my ( $chr, $start, $stop ) = ( $1, $2, $3 );
+            my $url_query  = $chr . '%3A' . $start . '-' . $stop;
+            my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
+
+            SPECIES:
+            for my $ens_species (
+                grep { /^ensembl_/ } $gconfig->get('modules')
+            ) {
+                ( my $species = $ens_species ) =~ s/^ensembl_//;
+                if ( %fq_species && !$fq_species{ $species } ) {
+                    next SPECIES;
+                }
+
+                my $db = Grm::DB->new( $ens_species );
+                my ($count) = $db->dbh->selectrow_array(
+                    q[
+                        select count(*) 
+                        from   seq_region 
+                        where  name=?
+                        and    length>?
+                    ],
+                    {},
+                    ( $chr, $stop )
+                );
+
+                next unless $count > 0;
+
+                my $url_species = $db->alias || $species;
+                ( my $display = $species ) =~ s/_/ /g;
+                push @suggestions, {
+                    url => sprintf(
+                        'http://ensembl.gramene.org/%s/'.
+                        'Location/View?r=%s',
+                        ucfirst( $url_species ),
+                        $url_query,
+                    ),
+                    title => sprintf( 
+                        'Ensembl %s &quot;%s&quot;</a>',
+                        ucfirst( $display ),
+                        $query,
+                    )
+                };
+            }
         }
+        else {
+            if ( ref $page_num eq 'ARRAY' ) {
+                $page_num = max( $page_num );
+                $req->param( page_num => $page_num );
+            }
 
-        for my $qry ( iterative_search_values( $query ) ) {
-            # quote the value if it has a colon as this (e.g., "GO:0001132")
-            # has special meaning to Solr (e.g., "species:Zea_mays")
-            $qry =~ s/\b(.*[:].*)/%22$1%22/g; 
-            $qry =~ s/ /+/g;
+            for my $qry ( iterative_search_values( $query ) ) {
+                # quote the value if it has a colon as this (e.g., "GO:0001132")
+                # has special meaning to Solr (e.g., "species:Zea_mays")
+                $qry =~ s/\b(.*[:].*)/%22$1%22/g; 
+                $qry =~ s/ /+/g;
 
-            my $get_url = sprintf( $solr_url . $URL, $qry );
+                my $get_url = sprintf( $solr_url . $URL, $qry );
 
-            # ensure not multi-valued
-            $req->param( query => $qry ); 
+                # ensure not multi-valued
+                $req->param( query => $qry ); 
 
-            my $params = $req->params->to_hash;
+                my $params = $req->params->to_hash;
 
-            while ( my ( $key, $value ) = each %$params ) {
-                next if $key eq 'query';
-                my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
-                if ( $key eq 'fq' ) {
-                    FQ_VAL:
-                    for my $fq_val ( @values ) {
-                        my ( $facet_name, $facet_val ) 
-                            = split( /:/, $fq_val, 2 );
+                while ( my ( $key, $value ) = each %$params ) {
+                    next if $key eq 'query';
+                    my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
+                    if ( $key eq 'fq' ) {
+                        FQ_VAL:
+                        for my $fq_val ( @values ) {
+                            my ( $facet_name, $facet_val ) 
+                                = split( /:/, $fq_val, 2 );
 
-                        if ( defined $facet_val && $facet_val =~ /\w+/ ) {
-                            if ( $facet_name eq 'species' ) {
-                                if ( lc $facet_val eq 'multi' ) {
-                                    next FQ_VAL;
+                            if ( defined $facet_val && $facet_val =~ /\w+/ ) {
+                                if ( $facet_name eq 'species' ) {
+                                    if ( lc $facet_val eq 'multi' ) {
+                                        next FQ_VAL;
+                                    }
+
+                                    $facet_val = lc $facet_val;
+                                    $facet_val =~ s/\s+/_/g;
                                 }
 
-                                $facet_val = lc $facet_val;
-                                $facet_val =~ s/\s+/_/g;
+                                push @{ $fq{ $facet_name } }, $facet_val;
                             }
-
-                            push @{ $fq{ $facet_name } }, $facet_val;
+                        }
+                    }
+                    else {
+                        for my $v ( @values ) {
+                            $get_url .= sprintf( '&%s=%s', $key, $v );
                         }
                     }
                 }
-                else {
-                    for my $v ( @values ) {
-                        $get_url .= sprintf( '&%s=%s', $key, $v );
+
+                while ( my ( $facet_name, $values ) = each %fq ) {
+                    for my $val ( @$values ) {
+                        $get_url .= sprintf( 
+                            '&fq=%s:%%22%s%%22', 
+                            $facet_name, 
+                            trim(unquote(url_unescape($val)))
+                        );
                     }
                 }
-            }
 
-            while ( my ( $facet_name, $values ) = each %fq ) {
-                for my $val ( @$values ) {
-                    $get_url .= sprintf( 
-                        '&fq=%s:%%22%s%%22', 
-                        $facet_name, 
-                        trim(unquote(url_unescape($val)))
+                $get_url .= '&rows=' . $page_size;
+
+                if ( $page_num > 1 ) {
+                    $get_url .= '&start=' . ($page_num - 1) * $page_size;
+                }
+
+                $self->app->log->debug( "getting '$get_url'" );
+
+                my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
+
+                if ( $res->is_success ) {
+                    $results = decode_json($res->content);
+                }
+                else {
+                    $results = { 
+                        code  => $res->code,
+                        error => $res->message,
+                    };
+
+                    $self->app->log->error( 
+                        sprintf(
+                            "Problem (%s) query: %s",
+                            $res->status_line,
+                            $qry,
+                        )
                     );
                 }
-            }
 
-            $get_url .= '&rows=' . $page_size;
-
-            if ( $page_num > 1 ) {
-                $get_url .= '&start=' . ($page_num - 1) * $page_size;
-            }
-
-            $self->app->log->debug( "getting '$get_url'" );
-
-            my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
-
-            if ( $res->is_success ) {
-                $results = decode_json($res->content);
-            }
-            else {
-                $results = { 
-                    code  => $res->code,
-                    error => $res->message,
-                };
-
-                $self->app->log->error( 
-                    sprintf(
-                        "Problem (%s) query: %s",
-                        $res->status_line,
-                        $qry,
-                    )
+                $self->app->log->debug(
+                    "found = ", $results->{'response'}{'numFound'}
                 );
+
+                if ( $results->{'response'}{'numFound'} > 0 ) {
+                    $query = $qry;
+                    last;
+                } 
             }
 
-            $self->app->log->info("found = ", $results->{'response'}{'numFound'});
+            $results->{'time'} = $timer->( format => 'seconds' );
 
-            if ( $results->{'response'}{'numFound'} > 0 ) {
-                $query = $qry;
-                last;
-            } 
+            my $search_db = Grm::DB->new('search');
+            $orig_params  =~ s/query=[^;&]+[;&]?//;
+
+            $search_db->schema->resultset('QueryLog')->create({
+                ip        => $session->{'ip'},
+                user_id   => $session->{'user_id'},
+                num_found => $results->{'response'}{'numFound'} || 0,
+                time      => $results->{'time'},
+                params    => $orig_params,
+                query     => $query,
+            });
         }
-
-        $results->{'time'} = $timer->( format => 'seconds' );
-
-        my $search_db = Grm::DB->new('search');
-        $orig_params  =~ s/query=[^;&]+[;&]?//;
-
-        $search_db->schema->resultset('QueryLog')->create({
-            ip        => $session->{'ip'},
-            user_id   => $session->{'user_id'},
-            num_found => $results->{'response'}{'numFound'} || 0,
-            time      => $results->{'time'},
-            params    => $orig_params,
-            query     => $query,
-        });
     }
 
     $self->respond_to(
@@ -191,7 +255,7 @@ sub search {
             $self->render( json => $results );
         },
         html => sub { 
-            my ( $pager, @suggestions );
+            my $pager;
             my $num_found = $results->{'response'}{'numFound'} || 0;
             if ( $num_found > 0 ) {
                 my $conf      = Grm::Config->new->get('search');
@@ -253,69 +317,6 @@ sub search {
                 $facets{'ontology'} = \%ont_facets;
 
                 $results->{'facet_counts'}{'facet_fields'} = \%facets;
-            }
-            else {
-                # looks like a chr:range, e.g., 
-                # "11 : 14375589-14373565"
-                # or
-                # "12:17360493...17361111"
-                my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
-                if ( 
-                    $query =~ /^
-                        ([\w.-]+)        # seq_region name (chr, scaffold)
-                        \s*              # maybe space
-                        :                # literal colon
-                        \s*              # maybe space
-                        ([\d,]+)         # start
-                        \s*              # maybe space
-                        (?:\.{2,3}|[-])  # either ellipses (2 or 3) or dash
-                        \s*              # maybe space
-                        ([\d,]+)         # stop
-                    $/xms 
-                ) {
-                    my ( $chr, $start, $stop ) = ( $1, $2, $3 );
-                    my $url_query = $chr . '%3A' . $start . '-' . $stop;
-
-                    SPECIES:
-                    for my $ens_species (
-                        grep { /^ensembl_/ } $gconfig->get('modules')
-                    ) {
-                        ( my $species = $ens_species ) =~ s/^ensembl_//;
-                        if ( %fq_species && !$fq_species{ $species } ) {
-                            next SPECIES;
-                        }
-
-                        my $db = Grm::DB->new( $ens_species );
-                        my ($count) = $db->dbh->selectrow_array(
-                            q[
-                                select count(*) 
-                                from   seq_region 
-                                where  name=?
-                                and    length>?
-                            ],
-                            {},
-                            ( $chr, $stop )
-                        );
-
-                        next unless $count > 0;
-
-                        my $url_species = $db->alias || $species;
-                        ( my $display = $species ) =~ s/_/ /g;
-                        push @suggestions, {
-                            url => sprintf(
-                                'http://ensembl.gramene.org/%s/'.
-                                'Location/View?r=%s',
-                                ucfirst( $url_species ),
-                                $url_query,
-                            ),
-                            title => sprintf( 
-                                'Ensembl %s &quot;%s&quot;</a>',
-                                ucfirst( $display ),
-                                $query,
-                            )
-                        };
-                    }
-                }
             }
 
             $self->render( 
