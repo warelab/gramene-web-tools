@@ -13,10 +13,11 @@ sub startup {
         file => $self->home->rel_file('conf/grm-web.yaml')
     });
 
+
     $self->log( 
         Mojo::Log->new(
             path  => $self->home->rel_file('logs/mojo.log'),
-            level => 'info'
+            level => $self->config('log_level') || 'info',
         )
     );
 
