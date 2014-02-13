@@ -64,8 +64,10 @@ sub search {
     my $search      = Grm::Search->new;
     my $timer       = timer_calc();
     my $results     = {};
-    my $page_num    = $req->param('page_num')  ||  1;
-    my $page_size   = $web_conf->{'page_size'} || 10;
+    my $page_num    = $req->param('page_num') ||  1;
+    my $page_size   = $req->param('page_size') 
+                   || $web_conf->{'page_size'} 
+                   || 10;
     my $orig_params = $req->params . ''; # force stringify
     my $odb         = Grm::Ontology->new;
 
@@ -333,6 +335,7 @@ sub search {
             }
 
             $self->render( 
+                session     => $session,
                 config      => $web_conf,
                 results     => $results,
                 pager       => $pager,
@@ -608,15 +611,37 @@ sub make_web_link {
 }
 
 # ----------------------------------------------------------------------
-sub report_error {
-    if ( my $err = shift ) {
-        sendmail(
-            To      => 'kclark@cshl.edu',
-            From    => 'webserver@gramene.org',
-            Subject => 'Web Server Error',
-            Message => $err,
-        );
+sub view_cart {
+    my $self  = shift;
+    my @items = ();
+
+    for my $item ( split( /\s*,\s*/, $self->param('cart') || '' ) ) {
+        my ( $module, $table, $id ) = split( /\//, $item );
+        next unless $module && $table && $id;
+
+        push @items, { 
+            module => $module,
+            table  => $table,
+            id     => $id,
+            hit_id => $item 
+        };
     }
+
+    $self->layout(undef);
+
+    $self->respond_to(
+        json => sub {
+            $self->render( json => { items => \@items } );
+        },
+
+        html => sub { 
+            $self->render( items => \@items );
+        },
+
+        txt => sub { 
+            $self->render( text => Dumper({ items => \@items }) );
+        },
+    );
 }
 
 1;

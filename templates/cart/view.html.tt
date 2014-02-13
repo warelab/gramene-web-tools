@@ -1,0 +1,34 @@
+<script>
+function remove_item(item_id) {
+  update_cart( item_id, false );
+  update_display();
+}
+
+function update_display() {
+  var cart = $.localStorage.get('cart');
+
+  if ( cart != undefined ) {
+    $('#cart').html('cart = <ol><li>' + cart.split(',').join('<li>') + '</ol>');
+  }
+//    $.ajax({
+//      url: '[% config.base_url %]/rest/view_cart.html?cart=' + cart,
+//    })
+//    .done( function( html ) {
+//      $('#cart').html( html );
+//    });
+//  }
+//  else {
+//    $('#cart').html(
+//      '<div class="text-center well">There is nothing in your cart</div>'
+//    );
+//  }
+}
+
+$(document).ready( function () {
+  update_display();
+});
+</script>
+
+<div id="container">
+  <div id="cart"></div>
+</div>

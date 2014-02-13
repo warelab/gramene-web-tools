@@ -1,12 +1,16 @@
 [%- USE Comma -%]
 
 <script>
+// ------------------------------------------
 function getParameterByName(name) {
+// ------------------------------------------
   var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
   return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
 }
 
+// ------------------------------------------
 function show_loading_gif() {
+// ------------------------------------------
   $('#search-results').html(
     '<div class="text-center">' 
     + '<img src="/img/loading.gif"><br/>'
@@ -14,7 +18,9 @@ function show_loading_gif() {
   );
 }
 
+// ------------------------------------------
 function exec_search(url) {
+// ------------------------------------------
   show_loading_gif();
 
   var get_url = "[% config.url_base %]" + url;
@@ -38,7 +44,9 @@ function exec_search(url) {
   });
 }
 
+// ------------------------------------------
 function get_page(qry_string) {
+// ------------------------------------------
   var url = "[% c.url_for('/rest/search.html') %]?" + qry_string;
   var page_num = $('#page_num').val();
 
@@ -49,6 +57,7 @@ function get_page(qry_string) {
   exec_search(url);
 }
 
+// ------------------------------------------
 $(document).ready( function () {
   var query = getParameterByName('query');
 
@@ -58,7 +67,6 @@ $(document).ready( function () {
     get_page( qry_string );
   }
 });
-
 </script>
 
 <div align="center">

@@ -1,6 +1,8 @@
 [%- USE Comma; USE POSIX; SET fq_num = 1 -%]
 <script>
+// ------------------------------------------
 function refine (event, options) {
+// ------------------------------------------
   event.preventDefault();
 
   if ( options === undefined ) {
@@ -29,6 +31,73 @@ function refine (event, options) {
   }
 
   window.location.href = "[% config.url_base %]" + "/search?" + qry_string;
+}
+
+// ------------------------------------------
+function select_showing_toggle (event) {
+// ------------------------------------------
+  event.preventDefault();
+
+  var set_checked = $('#select-all-btn').val() == 'Select These' ? true : false;
+
+  $('input[name=obj_id]').each(function() {
+    if ( $(this).prop('checked') != set_checked ) {
+      $(this).trigger('click');
+    }
+  });
+
+  $('#select-all-btn').attr('value', 
+    set_checked ? 'Unselect These' : 'Select These'
+  );
+}
+
+// ------------------------------------------
+function download_all (event) {
+// ------------------------------------------
+  event.preventDefault();
+
+  $('#download-all-btn').prop('disabled', true);
+
+  var total = [% results.response.numFound -%];
+
+  $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total + ' records<br/><img src="/img/loading.gif"></div>');
+
+  var qry_string = document.URL.split('?')[1];
+  var url = "[% c.url_for('/rest/search.json') %]?" 
+    + qry_string 
+    + '&page_size=' + total
+  ;
+  console.log(url);
+
+  $.ajax({
+    url: url,
+    error: function (xhr, text_status, error_thrown) {
+      $('#modal_update').html(
+        + text_status
+        + " calling &quot;" + url + "&quot;"
+        + " ("
+        + error_thrown
+        + ")<br/>"
+        + xhr.responseText
+      );
+    },
+  })
+  .done( function (json) {
+    if ( json != undefined ) {
+      console.log(json); 
+      var num = json.response.numFound || 0;
+      if ( num > 0 ) {
+        $("#modal_update").html("Adding to cart");
+        update_cart(json.response.docs, true);
+      }
+      $.modal.close();
+    }
+    else {
+      $("#modal_update").html("Something went wrong");
+    }
+  });
+
+  $('#download-all-btn').prop('disabled', false);
 }
 </script>
 
@@ -62,6 +131,8 @@ function refine (event, options) {
   Error: [% results.error %] [% IF results.code %] (Code: [% results.code %])[% END %]
 </div>
 [% END %]
+
+<div id="info"></div>
 
 [% SET num = results.response.numFound -%]
 
@@ -135,13 +206,27 @@ function refine (event, options) {
   </div>
 
   <div class="col-md-8">
+    <table>
     [% FOREACH hit IN results.response.docs %]
-    <p>
       [% SET hit_id = hit.id %]
-      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
-      [% hit.content.join('<br/>') %]
-    </p>
+      <tr>
+        <td valign="top">
+        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange="update_cart('[% hit.id %]', $(this).is(':checked'))">
+        </td>
+        <td>
+        <p>
+        <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
+        [% hit.content.join('<br/>') %]
+        </p>
+        </td>
+      </tr>
     [% END %]
+    </table>
+
+    <div class="text-center">
+      <input id="select-all-btn" type="button" class="btn btn-default" value="Select These" onclick="javascript:select_showing_toggle(event)">
+      <input id="download-all-btn" type="button" class="btn btn-default" value="Download All" onclick="javascript:download_all(event)">
+    </div>
 
     [% IF pager %]
     <div class="text-center">

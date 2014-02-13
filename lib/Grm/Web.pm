@@ -33,6 +33,8 @@ sub startup {
 
     # Normal route to controller
     $r->get('/')->to('root#home');
+
+    $r->any('/cart/view')->to('cart#view');
     
     $r->get('/search')->to('search#search');
 
@@ -53,6 +55,8 @@ sub startup {
     $r->get('/rest/ontology_associations/:term_id')->to(
         'rest#ontology_associations'
     );
+
+    $r->get('/rest/view_cart')->to('rest#view_cart');
 
     $r->get('/ontology')->to('ontology#search');
 

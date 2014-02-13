@@ -10,6 +10,9 @@
 
     <script src="/js/bootstrap.js"></script>
     <script src="/js/jquery.dataTables.js"></script>
+    <script src="/js/jquery.cookie.js"></script>
+    <script src="/js/jquery.storageapi.js"></script>
+    <script src="/js/jquery.simplemodal.js"></script>
 
     <link rel="shortcut icon" href="/ico/favicon.ico">
 
@@ -18,6 +21,7 @@
     <link href="/css/bootstrap.css" rel="stylesheet" />
     <link href="/css/jquery.dataTables.css" rel="stylesheet" />
     <link href="/css/jquery.tocify.css" rel="stylesheet" />
+    <link href="/css/jquery.modal.css" rel="stylesheet" />
     <link href="/css/grm-style.css" rel="stylesheet" />
     <link href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
     <link rel="search" type="application/opensearchdescription+xml" href="http://tools.gramene.org/opensearch.xml" title="Gramene Search" />
@@ -32,6 +36,64 @@
     ga('send', 'pageview');
 
   </script>
+
+  <script>
+    // ------------------------------------------
+    function unique(arr) {
+    // ------------------------------------------
+      var hash = {}, result = [];
+      for ( var i = 0, l = arr.length; i < l; ++i ) {
+        if ( 
+          arr[i] != undefined && arr[i] != '' && !hash.hasOwnProperty(arr[i]) 
+        ) {
+          hash[ arr[i] ] = true;
+          result.push(arr[i]);
+        }
+      }
+
+      return result;
+    }
+
+    // ------------------------------------------
+    function empty_cart () {
+    // ------------------------------------------
+      $.localStorage.remove('cart');
+      update_cart();
+    }
+
+    // ------------------------------------------
+    function update_cart (record, add) {
+    // ------------------------------------------
+      var cart   = [];
+      var storage = $.localStorage;
+      var items   = storage.get('cart');
+
+      if ( items != undefined ) {
+        cart = items.split(',');
+      }
+
+      if ( record != undefined ) {
+        if ( add ) {
+          cart.push( record );
+        }
+        else { // remove
+          cart = jQuery.grep( cart, function (n, i) {
+            return ( n != record );
+          });
+        }
+
+        cart = unique(cart);
+
+        storage.set( 'cart', cart.join(',') );
+      }
+
+      $('#cart_count').text(cart.length);
+    }
+
+    $(document).ready( function() {
+      update_cart();
+    });
+  </script>
   </head>
 
   <body>
@@ -39,6 +101,11 @@
       <div class="header">
         <a href="http://www.gramene.org"><img src="/img/gramene_logo.png"></a>
         [% IF title %]<span class="pull-right"><h1>[% title %]</h1></span>[% END %]
+
+        <span class="pull-right">
+          <a href="/cart/view"><img src="/img/cart.png"><span id="cart_count" class="badge"></span></a>
+          <a href="javascript:empty_cart();"><span class="glyphicon glyphicon-remove-sign"></span></a>
+        </div>
       </div>
     </div> <!-- /container -->
 
