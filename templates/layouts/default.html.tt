@@ -13,6 +13,7 @@
     <script src="/js/jquery.cookie.js"></script>
     <script src="/js/jquery.storageapi.js"></script>
     <script src="/js/jquery.simplemodal.js"></script>
+    <script src="/js/underscore.js"></script>
     <script src="/lib/d3/d3.js"></script>
     <script src="/js/d3.layout.cloud.js"></script>
 
@@ -64,31 +65,46 @@
     }
 
     // ------------------------------------------
-    function update_cart (record, add) {
+    function update_cart (data, add) {
+    // "data" could be one record or an array
+    // "add" is whether to add or remove the data
     // ------------------------------------------
-      var cart   = [];
       var storage = $.localStorage;
       var items   = storage.get('cart');
+      var cart    = [];
+      console.log('data = ' + data);
+      console.log('data type = ' + typeof(data));
+      console.log('cart size = ' + cart.length);
 
       if ( items != undefined ) {
         cart = items.split(',');
       }
 
-      if ( record != undefined ) {
+      if ( data != undefined ) {
         if ( add ) {
-          cart.push( record );
+          if ( typeof(data) === 'object' ) {
+            cart.push.apply( cart, data );
+          }
+          else {
+            cart.push( data );
+          }
+          console.log('added data, cart = ' + cart);
+          console.log('cart size = ' + cart.length);
         }
         else { // remove
           cart = jQuery.grep( cart, function (n, i) {
-            return ( n != record );
+            return ( n != data );
           });
         }
 
         cart = unique(cart);
+        console.log('after unique, cart = ' + cart);
+        console.log('cart size = ' + cart.length);
 
         storage.set( 'cart', cart.join(',') );
       }
 
+      console.log('cart size = ' + cart.length);
       $('#cart_count').text(cart.length);
     }
 

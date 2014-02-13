@@ -38,7 +38,7 @@ function select_showing_toggle (event) {
 // ------------------------------------------
   event.preventDefault();
 
-  var set_checked = $('#select-all-btn').val() == 'Select These' ? true : false;
+  var set_checked = $('#select-showing-btn').val() == 'Select These' ? true : false;
 
   $('input[name=obj_id]').each(function() {
     if ( $(this).prop('checked') != set_checked ) {
@@ -46,28 +46,27 @@ function select_showing_toggle (event) {
     }
   });
 
-  $('#select-all-btn').attr('value', 
+  $('#select-showing-btn').attr('value', 
     set_checked ? 'Unselect These' : 'Select These'
   );
 }
 
 // ------------------------------------------
-function download_all (event) {
+function select_all (event) {
 // ------------------------------------------
   event.preventDefault();
 
-  $('#download-all-btn').prop('disabled', true);
+  $('#select-all-btn').prop('disabled', true);
 
   var total = [% results.response.numFound -%];
 
-  $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total + ' records<br/><img src="/img/loading.gif"></div>');
+  $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total.toLocaleString() + ' records<br/><img src="/img/loading.gif"></div>');
 
   var qry_string = document.URL.split('?')[1];
   var url = "[% c.url_for('/rest/search.json') %]?" 
     + qry_string 
     + '&page_size=' + total
   ;
-  console.log(url);
 
   $.ajax({
     url: url,
@@ -84,11 +83,13 @@ function download_all (event) {
   })
   .done( function (json) {
     if ( json != undefined ) {
-      console.log(json); 
       var num = json.response.numFound || 0;
       if ( num > 0 ) {
         $("#modal_update").html("Adding to cart");
-        update_cart(json.response.docs, true);
+        update_cart(
+          _.map( json.response.docs, function (o) { return o['id'] } ),
+          true
+        );
       }
       $.modal.close();
     }
@@ -97,7 +98,7 @@ function download_all (event) {
     }
   });
 
-  $('#download-all-btn').prop('disabled', false);
+  $('#select-all-btn').prop('disabled', false);
 }
 </script>
 
@@ -224,8 +225,8 @@ function download_all (event) {
     </table>
 
     <div class="text-center">
-      <input id="select-all-btn" type="button" class="btn btn-default" value="Select These" onclick="javascript:select_showing_toggle(event)">
-      <input id="download-all-btn" type="button" class="btn btn-default" value="Download All" onclick="javascript:download_all(event)">
+      <input id="select-showing-btn" type="button" class="btn btn-default" value="Select These" onclick="javascript:select_showing_toggle(event)">
+      <input id="select-all-btn" type="button" class="btn btn-default" value="Select All" onclick="javascript:select_all(event)">
     </div>
 
     [% IF pager %]
