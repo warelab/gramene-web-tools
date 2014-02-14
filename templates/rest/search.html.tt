@@ -1,4 +1,4 @@
-[%- USE Comma; USE POSIX; SET fq_num = 1 -%]
+[%- USE Comma; USE JSON; USE POSIX; SET fq_num = 1 -%]
 <script>
 // ------------------------------------------
 function refine (event, options) {
@@ -63,40 +63,41 @@ function select_all (event) {
   $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total.toLocaleString() + ' records<br/><img src="/img/loading.gif"></div>');
 
   var qry_string = document.URL.split('?')[1];
+  var chunk = 5000;
   var url = "[% c.url_for('/rest/search.json') %]?" 
     + qry_string 
-    + '&page_size=' + total
+    + '&fl=id,object,species,title&no_hl=1&no_facet=1'
+    + '&page_size=' + chunk
   ;
 
-  $.ajax({
-    url: url,
-    error: function (xhr, text_status, error_thrown) {
-      $('#modal_update').html(
-        + text_status
-        + " calling &quot;" + url + "&quot;"
-        + " ("
-        + error_thrown
-        + ")<br/>"
-        + xhr.responseText
-      );
-    },
-  })
-  .done( function (json) {
-    if ( json != undefined ) {
-      var num = json.response.numFound || 0;
-      if ( num > 0 ) {
-        $("#modal_update").html("Adding to cart");
-        update_cart(
-          _.map( json.response.docs, function (o) { return o['id'] } ),
-          true
+  for ( var i = 1; i <= total; i += chunk ) {
+    console.log('i = ' + i);
+    $.ajax({
+      url: url + '&start=' + (i-1),
+      error: function (xhr, text_status, error_thrown) {
+        $('#modal_update').html(
+          + text_status
+          + " calling &quot;" + url + "&quot;"
+          + " ("
+          + error_thrown
+          + ")<br/>"
+          + xhr.responseText
         );
+      },
+    })
+    .done( function (json) {
+      if ( json != undefined ) {
+        var num = json.response.numFound || 0;
+        if ( num > 0 ) {
+          update_cart( json.response.docs, true );
+        }
+        $.modal.close();
       }
-      $.modal.close();
-    }
-    else {
-      $("#modal_update").html("Something went wrong");
-    }
-  });
+      else {
+        $("#modal_update").html("Something went wrong");
+      }
+    });
+  }
 
   $('#select-all-btn').prop('disabled', false);
 }
@@ -210,9 +211,10 @@ function select_all (event) {
     <table>
     [% FOREACH hit IN results.response.docs %]
       [% SET hit_id = hit.id %]
+      [% SET json = { id = hit.id, title = hit.title, species = hit.species, object = hit.object } %]
       <tr>
         <td valign="top">
-        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange="update_cart('[% hit.id %]', $(this).is(':checked'))">
+        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange='update_cart([% json.json %], $(this).is(":checked"))'>
         </td>
         <td>
         <p>

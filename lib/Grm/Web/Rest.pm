@@ -22,13 +22,7 @@ use Grm::Utils qw(
     camel_case commify iterative_search_values timer_calc pager 
 );
 
-Readonly my $URL => '/select?q=text:%s&wt=json&hl=true&hl.fl=content' .
-    '&hl.simple.pre=<em>&hl.simple.post=</em>' .
-    '&facet=true&facet.mincount=1' .
-    '&facet.field=species' .
-    '&facet.field=ontology' .
-    '&facet.field=object';
-#    '&facet.pivot=species_name,object_type';
+Readonly my $URL => '/select?q=text:%s&wt=json';
 
 # ----------------------------------------------------------------------
 sub info {
@@ -81,7 +75,25 @@ sub search {
         # Create a query string to tack onto the maing "query"
         #
         my $get_url_params = "&rows=$page_size";
-        my $params         = $req->params->to_hash;
+        if ( my $fl = $req->param('fl') ) {
+            $get_url_params .= "&fl=$fl";
+        }
+
+        my $no_hl = $req->param('no_hl');
+        unless ( $no_hl ) {
+            $get_url_params .= 
+              '&hl=true&hl.fl=content&hl.simple.pre=<em>&hl.simple.post=</em>';
+        }
+
+        my $no_facet = $req->param('no_facet');
+        unless ( $no_facet ) {
+            $get_url_params .= '&facet=true&facet.mincount=1' 
+                . '&facet.field=species' 
+                . '&facet.field=ontology' 
+                . '&facet.field=object';
+        }
+
+        my $params = $req->params->to_hash;
         my %fq;
 
         while ( my ( $key, $value ) = each %$params ) {

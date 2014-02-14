@@ -27,6 +27,7 @@
     <link href="/css/jquery.modal.css" rel="stylesheet" />
     <link href="/css/grm-style.css" rel="stylesheet" />
     <link href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+
     <link rel="search" type="application/opensearchdescription+xml" href="http://tools.gramene.org/opensearch.xml" title="Gramene Search" />
 
   <script>
@@ -47,9 +48,11 @@
       var hash = {}, result = [];
       for ( var i = 0, l = arr.length; i < l; ++i ) {
         if ( 
-          arr[i] != undefined && arr[i] != '' && !hash.hasOwnProperty(arr[i]) 
+          arr[i] != undefined 
+          && arr[i] != '' 
+          && !hash.hasOwnProperty(arr[i]['id']) 
         ) {
-          hash[ arr[i] ] = true;
+          hash[ arr[i]['id'] ] = true;
           result.push(arr[i]);
         }
       }
@@ -69,43 +72,35 @@
     // "data" could be one record or an array
     // "add" is whether to add or remove the data
     // ------------------------------------------
+      console.log('adding data = ', data);
       var storage = $.localStorage;
-      var items   = storage.get('cart');
-      var cart    = [];
-      console.log('data = ' + data);
-      console.log('data type = ' + typeof(data));
-      console.log('cart size = ' + cart.length);
-
-      if ( items != undefined ) {
-        cart = items.split(',');
-      }
+      var cart    = storage.get('cart') || [];
 
       if ( data != undefined ) {
         if ( add ) {
-          if ( typeof(data) === 'object' ) {
-            cart.push.apply( cart, data );
+          if ( $.isArray(data) ) {
+            data.forEach( function (item) { cart.push( item ) } );
+            //cart.push.apply( cart, data );
           }
           else {
             cart.push( data );
           }
-          console.log('added data, cart = ' + cart);
-          console.log('cart size = ' + cart.length);
         }
-        else { // remove
-          cart = jQuery.grep( cart, function (n, i) {
-            return ( n != data );
+        else { // remove, can only remove one at a time
+          cart = $.grep( cart, function (n, i) {
+
+            var id = typeof(data) === 'string' ? data : data['id'];
+
+            return ( n['id'] != id );
           });
         }
 
         cart = unique(cart);
-        console.log('after unique, cart = ' + cart);
-        console.log('cart size = ' + cart.length);
 
-        storage.set( 'cart', cart.join(',') );
+        storage.set( 'cart', cart );
       }
 
-      console.log('cart size = ' + cart.length);
-      $('#cart_count').text(cart.length);
+      $('#cart_count').text(cart.length.toLocaleString());
     }
 
     $(document).ready( function() {

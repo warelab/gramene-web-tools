@@ -1,34 +1,59 @@
 <script>
-function remove_item(item_id) {
-  update_cart( item_id, false );
-  update_display();
-}
-
-function update_display() {
-  var cart = $.localStorage.get('cart');
-
-  if ( cart != undefined ) {
-    $('#cart').html('cart = <ol><li>' + cart.split(',').join('<li>') + '</ol>');
-  }
-//    $.ajax({
-//      url: '[% config.base_url %]/rest/view_cart.html?cart=' + cart,
-//    })
-//    .done( function( html ) {
-//      $('#cart').html( html );
-//    });
-//  }
-//  else {
-//    $('#cart').html(
-//      '<div class="text-center well">There is nothing in your cart</div>'
-//    );
-//  }
+function ucfirst(str) {
+  return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
 }
 
 $(document).ready( function () {
-  update_display();
+  var cart = $.localStorage.get('cart') || [];
+
+  if ( cart.length > 0 ) {
+    $('#cart').html('<table id="cart-tbl" width="100%" class="display" cellpadding="0" cellspacing="0" border="0"></table>');
+
+    $('#cart-tbl').dataTable({
+      "aaData": cart,
+      "aoColumns": [
+        { "mData": "title", "sTitle": "Title" },
+        { 
+          "mData": "object", 
+          "sTitle": "Object", 
+          "mRender": function ( data, type, full ) { return ucfirst(data) }
+        },
+        { 
+          "mData": "species", 
+          "sTitle": "Species", 
+          "mRender": function ( data, type, full ) {
+            return ucfirst(data.replace(/_/g, ' '));
+          }
+        },
+        { 
+          "mData": "id", 
+          "sTitle": "ID", 
+          "mRender": function ( data, type, full ) {
+            return '<button class="btn btn-default remove-btn" id="' 
+              + data +'">Remove</button>'
+          }
+        },
+      ]
+    });
+  }
+  else {
+    $('#cart').html('<div class="well text-center">There is nothing in your cart.</div>');
+  }
+
+  $(".remove-btn").on('click', function () {
+      var id = $(this).attr('id');
+      if ( id ) {
+        update_cart( id, false );
+      }
+
+      var currentRow = $(this).closest('tr');
+
+      if ( currentRow ) {
+        var table = $('#cart-tbl').dataTable();
+        table.fnDeleteRow(currentRow[0]);
+      }
+  });
 });
 </script>
 
-<div id="container">
-  <div id="cart"></div>
-</div>
+<div id="cart"></div>
