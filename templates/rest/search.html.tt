@@ -71,7 +71,6 @@ function select_all (event) {
   ;
 
   for ( var i = 1; i <= total; i += chunk ) {
-    console.log('i = ' + i);
     $.ajax({
       url: url + '&start=' + (i-1),
       error: function (xhr, text_status, error_thrown) {
@@ -214,7 +213,7 @@ function select_all (event) {
       [% SET json = { id = hit.id, title = hit.title, species = hit.species, object = hit.object } %]
       <tr>
         <td valign="top">
-        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange='update_cart([% json.json %], $(this).is(":checked"))'>
+        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange='update_cart("[% hit.id %]", $(this).is(":checked"))'>
         </td>
         <td>
         <p>

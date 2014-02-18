@@ -34,7 +34,13 @@ sub startup {
     # Normal route to controller
     $r->get('/')->to('root#home');
 
-    $r->any('/cart/view')->to('cart#view');
+    $r->any('/cart/edit')->to('cart#edit');
+
+    $r->any('/cart/count')->to('cart#count');
+
+    $r->post('/cart/empty')->to('cart#empty');
+
+    $r->get('/cart/view')->to('cart#view');
     
     $r->get('/search')->to('search#search');
 
@@ -45,6 +51,8 @@ sub startup {
     $r->any('/download/package')->to('download#package');
 
     $r->get('/rest')->to('rest#info');
+
+    $r->get('/rest/cart')->to('rest#cart');
 
     $r->get('/rest/info')->to('rest#info');
 

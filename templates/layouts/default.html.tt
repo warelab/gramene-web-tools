@@ -43,64 +43,50 @@
 
   <script>
     // ------------------------------------------
-    function unique(arr) {
-    // ------------------------------------------
-      var hash = {}, result = [];
-      for ( var i = 0, l = arr.length; i < l; ++i ) {
-        if ( 
-          arr[i] != undefined 
-          && arr[i] != '' 
-          && !hash.hasOwnProperty(arr[i]['id']) 
-        ) {
-          hash[ arr[i]['id'] ] = true;
-          result.push(arr[i]);
-        }
-      }
-
-      return result;
-    }
-
-    // ------------------------------------------
     function empty_cart () {
     // ------------------------------------------
-      $.localStorage.remove('cart');
+      $.post( 
+        "[% config.url_base %][% c.url_for('/cart/empty') %]",
+        { user_id: "[% session.user_id %]" }
+      );
+
       update_cart();
     }
 
     // ------------------------------------------
-    function update_cart (data, add) {
+    function update_cart(data, add) {
     // "data" could be one record or an array
     // "add" is whether to add or remove the data
     // ------------------------------------------
-      console.log('adding data = ', data);
-      var storage = $.localStorage;
-      var cart    = storage.get('cart') || [];
-
       if ( data != undefined ) {
-        if ( add ) {
-          if ( $.isArray(data) ) {
-            data.forEach( function (item) { cart.push( item ) } );
-            //cart.push.apply( cart, data );
-          }
-          else {
-            cart.push( data );
-          }
-        }
-        else { // remove, can only remove one at a time
-          cart = $.grep( cart, function (n, i) {
-
-            var id = typeof(data) === 'string' ? data : data['id'];
-
-            return ( n['id'] != id );
-          });
+        if ( typeof(data) == 'string' ) {
+          var id = data;
+          data = [ id ];
         }
 
-        cart = unique(cart);
-
-        storage.set( 'cart', cart );
+        $.ajax({
+          url: "[% config.url_base %][% c.url_for('/cart/edit') %]",
+          data: {
+            items: data.join(','),
+            action: add ? 'add' : 'remove',
+          },
+          dataType: 'json',
+          type: 'POST',
+          error: function (jqXHR, textStatus, errorThrown) {
+            alert(
+              'Error adding data to cart: '
+              + textStatus + ' (' + errorThrown + ')'
+            );
+          }
+        });
       }
 
-      $('#cart_count').text(cart.length.toLocaleString());
+      $.get( 
+        "[% config.url_base %][% c.url_for('/cart/count') %]",
+        function (data) {
+          $('#cart_count').text( data.cart_count.toLocaleString() )
+        }
+      );
     }
 
     $(document).ready( function() {

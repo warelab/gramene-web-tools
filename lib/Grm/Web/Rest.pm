@@ -48,6 +48,35 @@ sub info {
 }
 
 # ----------------------------------------------------------------------
+sub cart {
+    my $self    = shift;
+    my $session = $self->session;
+    my $user_id = $session->{'user_id'} || '';
+    my $schema  = Grm::DB->new('search')->schema;
+    my ($cart)  = $schema->resultset('Cart')->find_or_create(
+        { user_id => $user_id }
+    );
+    my @items   = split( /,/, $cart->value() );
+
+    $self->layout(undef);
+
+    $self->respond_to(
+        json => sub {
+            $self->render( 
+                json => { 
+                    items => \@items,
+                    count => scalar @items,
+                } 
+            );
+        },
+
+        txt => sub { 
+            $self->render( text => Dumper({ items => \@items }) );
+        },
+    );
+}
+
+# ----------------------------------------------------------------------
 sub search {
     my $self        = shift;
     my $session     = $self->session;
