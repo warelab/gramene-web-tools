@@ -52,8 +52,6 @@ sub startup {
 
     $r->get('/rest')->to('rest#info');
 
-    $r->get('/rest/cart')->to('rest#cart');
-
     $r->get('/rest/info')->to('rest#info');
 
     $r->get('/rest/search')->to('rest#search');
