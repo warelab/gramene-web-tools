@@ -12,7 +12,6 @@ use List::Util qw( max );
 use List::MoreUtils qw( uniq );
 use Mail::Sendmail qw( sendmail );
 use Mojo::Util qw( squish trim unquote url_unescape );
-use Readonly;
 
 use lib '/usr/local/gramene-40/gramene-lib/lib';
 use Grm::Config;
@@ -21,8 +20,6 @@ use Grm::DB;
 use Grm::Utils qw( 
     camel_case commify iterative_search_values timer_calc pager 
 );
-
-Readonly my $URL => '/select?q=text:%s&wt=json';
 
 # ----------------------------------------------------------------------
 sub info {
@@ -48,35 +45,6 @@ sub info {
 }
 
 # ----------------------------------------------------------------------
-sub cart {
-    my $self    = shift;
-    my $session = $self->session;
-    my $user_id = $session->{'user_id'} || '';
-    my $schema  = Grm::DB->new('search')->schema;
-    my ($cart)  = $schema->resultset('Cart')->find_or_create(
-        { user_id => $user_id }
-    );
-    my @items   = split( /,/, $cart->value() );
-
-    $self->layout(undef);
-
-    $self->respond_to(
-        json => sub {
-            $self->render( 
-                json => { 
-                    items => \@items,
-                    count => scalar @items,
-                } 
-            );
-        },
-
-        txt => sub { 
-            $self->render( text => Dumper({ items => \@items }) );
-        },
-    );
-}
-
-# ----------------------------------------------------------------------
 sub search {
     my $self        = shift;
     my $session     = $self->session;
@@ -86,214 +54,39 @@ sub search {
     my $gconfig     = Grm::Config->new;
     my $search      = Grm::Search->new;
     my $timer       = timer_calc();
-    my $results     = {};
     my $page_num    = $req->param('page_num') ||  1;
     my $page_size   = $req->param('page_size') 
                    || $web_conf->{'page_size'} 
                    || 10;
-    my $orig_params = $req->params . ''; # force stringify
     my $odb         = Grm::Ontology->new;
+    my $results     = {};
 
-    my @suggestions;
     if ( $query ) {
         # ensure not multi-valued
         $req->param( query => $query ); 
 
-        #
-        # Parse out the request, figure out the "fq" facet queries
-        # Create a query string to tack onto the maing "query"
-        #
-        my $get_url_params = "&rows=$page_size";
-        if ( my $fl = $req->param('fl') ) {
-            $get_url_params .= "&fl=$fl";
-        }
-
-        my $no_hl = $req->param('no_hl');
-        unless ( $no_hl ) {
-            $get_url_params .= 
-              '&hl=true&hl.fl=content&hl.simple.pre=<em>&hl.simple.post=</em>';
-        }
-
-        my $no_facet = $req->param('no_facet');
-        unless ( $no_facet ) {
-            $get_url_params .= '&facet=true&facet.mincount=1' 
-                . '&facet.field=species' 
-                . '&facet.field=ontology' 
-                . '&facet.field=object';
-        }
-
-        my $params = $req->params->to_hash;
-        my %fq;
-
-        while ( my ( $key, $value ) = each %$params ) {
-            next if $key eq 'query'; 
-            my @values = ref $value eq 'ARRAY' ? @$value : ( $value );
-            if ( $key eq 'fq' ) {
-                FQ_VAL:
-                for my $fq_val ( @values ) {
-                    my ( $facet_name, $facet_val ) 
-                        = split( /:/, $fq_val, 2 );
-
-                    if ( defined $facet_val && $facet_val =~ /\w+/ ) {
-                        if ( $facet_name eq 'species' ) {
-                            if ( lc $facet_val eq 'multi' ) {
-                                next FQ_VAL;
-                            }
-
-                            $facet_val = lc $facet_val;
-                            $facet_val =~ s/\s+/_/g;
-                        }
-
-                        push @{ $fq{ $facet_name } }, $facet_val;
-                    }
-                }
-            }
-            else {
-                for my $v ( @values ) {
-                    $get_url_params .= sprintf( '&%s=%s', $key, $v );
-                }
-            }
-        }
-
-        while ( my ( $facet_name, $values ) = each %fq ) {
-            for my $val ( @$values ) {
-                $get_url_params .= sprintf( 
-                    '&fq=%s:%%22%s%%22', 
-                    $facet_name, 
-                    trim(unquote(url_unescape($val)))
-                );
-            }
-        }
-
-        if ( $page_num > 1 ) {
-            $get_url_params .= '&start=' . ($page_num - 1) * $page_size;
-        }
+        $results      = $search->search(
+            query     => $query,
+            params    => $req->params->to_hash,
+            fl        => $req->param('fl')        // '',
+            no_hl     => $req->param('no_hl')     // '',
+            no_facet  => $req->param('no_facet')  // '',
+            page_size => $req->param('page_size') 
+                      || $web_conf->{'page_size'} 
+                      || 10,
+        );
 
         #
-        # See if query looks like "chr:start-stop," e.g., 
-        # "11 : 14375589-14373565"
-        # or
-        # "12:17360493...17361111"
+        # The presence of suggestions means it didn't look like
+        # a good query, e.g., "chr:start-stop"
         #
-        if ( 
-            $query =~ /^
-                ([\w.-]+)        # seq_region name (chr, scaffold)
-                \s*              # maybe space
-                :                # literal colon
-                \s*              # maybe space
-                ([\d,]+)         # start
-                \s*              # maybe space
-                (?:\.{2,3}|[-])  # either ellipses (2 or 3) or dash
-                \s*              # maybe space
-                ([\d,]+)         # stop
-            $/xms 
-        ) {
-            my ( $chr, $start, $stop ) = ( $1, $2, $3 );
-            my $url_query  = $chr . '%3A' . $start . '-' . $stop;
-            my %fq_species = map { lc $_, 1 } @{ $fq{'species'} || [] };
-            $self->app->log->info("fq species = ", Dumper(\%fq_species));
-
-            SPECIES:
-            for my $ens_species (
-                grep { /^ensembl_/ } $gconfig->get('modules')
-            ) {
-                ( my $species = $ens_species ) =~ s/^ensembl_//;
-                if ( %fq_species && !$fq_species{ $species } ) {
-                    next SPECIES;
-                }
-
-                my $db = Grm::DB->new( $ens_species );
-                my ($count) = $db->dbh->selectrow_array(
-                    q[
-                        select count(*) 
-                        from   seq_region 
-                        where  name=?
-                        and    length>?
-                    ],
-                    {},
-                    ( $chr, $stop )
-                );
-
-                next unless $count > 0;
-
-                my $url_species = $db->alias || $species;
-                ( my $display = $species ) =~ s/_/ /g;
-                push @suggestions, {
-                    url => sprintf(
-                        'http://ensembl.gramene.org/%s/'.
-                        'Location/View?r=%s',
-                        ucfirst( $url_species ),
-                        $url_query,
-                    ),
-                    title => sprintf( 
-                        'Ensembl %s &quot;%s&quot;</a>',
-                        ucfirst( $display ),
-                        $query,
-                    )
-                };
-            }
-        }
-        #
-        # Looks legit, so go search Solr
-        #
-        else {
-            if ( ref $page_num eq 'ARRAY' ) {
-                $page_num = max( $page_num );
-                $req->param( page_num => $page_num );
-            }
-
-            my $sconfig  = $gconfig->get('search');
-            my $solr_url = $sconfig->{'solr'}{'url'} or die 'No Solr URL';
-            my $ua       = LWP::UserAgent->new;
-
-            $ua->agent('GrmSearch/0.1');
-
-            for my $qry ( iterative_search_values( $query ) ) {
-                # quote the value if it has a colon as this (e.g., "GO:0001132")
-                # has special meaning to Solr (e.g., "species:Zea_mays")
-                $qry =~ s/\b(.*[:].*)/%22$1%22/g; 
-                $qry =~ s/ /+/g;
-
-                my $get_url = sprintf( $solr_url . $URL, $qry ) 
-                            . $get_url_params;
-
-                $self->app->log->debug( "getting '$get_url'" );
-
-                my $res = $ua->request( HTTP::Request->new( GET => $get_url ) );
-
-                if ( $res->is_success ) {
-                    $results = decode_json($res->content);
-                }
-                else {
-                    $results = { 
-                        code  => $res->code,
-                        error => $res->message,
-                    };
-
-                    $self->app->log->error( 
-                        sprintf(
-                            "Problem (%s) query: %s",
-                            $res->status_line,
-                            $qry,
-                        )
-                    );
-                }
-
-                $self->app->log->debug(
-                    "found = ", $results->{'response'}{'numFound'}
-                );
-
-                if ( $results->{'response'}{'numFound'} > 0 ) {
-                    $query = $qry;
-                    last;
-                } 
-            }
-
-            $results->{'time'} = $timer->( format => 'seconds' );
+        if ( !$results->{'suggestions'} ) {
+            #
+            # Force stringify, store the "query" separately
+            #
+            ( my $orig_params = $req->params . '' ) =~ s/query=[^;&]+[;&]?//;
 
             my $search_db = Grm::DB->new('search');
-            $orig_params  =~ s/query=[^;&]+[;&]?//;
-
             $search_db->schema->resultset('QueryLog')->create({
                 ip        => $session->{'ip'},
                 user_id   => $session->{'user_id'},
@@ -380,7 +173,6 @@ sub search {
                 config      => $web_conf,
                 results     => $results,
                 pager       => $pager,
-                suggestions => \@suggestions,
             );
         },
         
