@@ -50,25 +50,34 @@
         { user_id: "[% session.user_id %]" }
       );
 
-      update_cart();
+      show_cart_count();
     }
 
     // ------------------------------------------
-    function update_cart(data, add) {
-    // "data" could be one record or an array
+    function show_cart_count () {
+    // ------------------------------------------
+      $.get( 
+        "[% config.url_base %][% c.url_for('/cart/count') %]",
+        function (data) {
+          $('#cart_count').text( data.count.toLocaleString() )
+        }
+      )
+    }
+
+    // ------------------------------------------
+    function update_cart(args) {
     // "add" is whether to add or remove the data
     // ------------------------------------------
-      if ( data != undefined ) {
-        if ( typeof(data) == 'string' ) {
-          var id = data;
-          data = [ id ];
-        }
+      var id           = args.id;
+      var add          = args.add; // true or false 
+      var update_count = args.update_count;
 
+      if ( id != undefined ) {
         $.ajax({
           url: "[% config.url_base %][% c.url_for('/cart/edit') %]",
           data: {
-            items: data.join(','),
             action: add ? 'add' : 'remove',
+            id: id,
           },
           dataType: 'json',
           type: 'POST',
@@ -79,18 +88,13 @@
             );
           }
         });
-      }
 
-      $.get( 
-        "[% config.url_base %][% c.url_for('/cart/count') %]",
-        function (data) {
-          $('#cart_count').text( data.cart_count.toLocaleString() )
-        }
-      );
+        if ( update_count ) { show_cart_count() }
+      }
     }
 
     $(document).ready( function() {
-      update_cart();
+      show_cart_count();
     });
   </script>
   </head>
