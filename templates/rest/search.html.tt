@@ -38,17 +38,21 @@ function select_showing_toggle (event) {
 // ------------------------------------------
   event.preventDefault();
 
-  var set_checked = $('#select-showing-btn').val() == 'Select These' ? true : false;
+  var check_val = 
+    $('#select-showing-btn').val() == 'Select These' ? true : false;
 
   $('input[name=obj_id]').each(function() {
-    if ( $(this).prop('checked') != set_checked ) {
-      $(this).trigger('click');
+    if ( $(this).prop('checked') != check_val ) {
+      $(this).prop('checked', check_val);
+      update_cart({ id: $(this).val(), add: check_val, update_count: false });
     }
   });
 
   $('#select-showing-btn').attr('value', 
-    set_checked ? 'Unselect These' : 'Select These'
+    check_val ? 'Unselect These' : 'Select These'
   );
+
+  show_cart_count(); 
 }
 
 // ------------------------------------------
@@ -63,42 +67,31 @@ function select_all (event) {
   $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total.toLocaleString() + ' records<br/><img src="/img/loading.gif"></div>');
 
   var qry_string = document.URL.split('?')[1];
-  var chunk = 5000;
-  var url = "[% c.url_for('/rest/search.json') %]?" 
-    + qry_string 
-    + '&fl=id,object,species,title&no_hl=1&no_facet=1'
-    + '&page_size=' + chunk
-  ;
+  var url = "[% c.url_for('/cart/edit') %]?" + qry_string + '&page_size=' + total;
 
-  for ( var i = 1; i <= total; i += chunk ) {
-    $.ajax({
-      url: url + '&start=' + (i-1),
-      error: function (xhr, text_status, error_thrown) {
-        $('#modal_update').html(
-          + text_status
-          + " calling &quot;" + url + "&quot;"
-          + " ("
-          + error_thrown
-          + ")<br/>"
-          + xhr.responseText
-        );
-      },
-    })
-    .done( function (json) {
-      if ( json != undefined ) {
-        var num = json.response.numFound || 0;
-        if ( num > 0 ) {
-          update_cart( json.response.docs, true );
-        }
-        $.modal.close();
-      }
-      else {
-        $("#modal_update").html("Something went wrong");
-      }
-    });
-  }
-
-  $('#select-all-btn').prop('disabled', false);
+  $.ajax({
+    url: url,
+    error: function (xhr, text_status, error_thrown) {
+      $('#modal_update').html(
+        + text_status
+        + " calling &quot;" + url + "&quot;"
+        + " ("
+        + error_thrown
+        + ")<br/>"
+        + xhr.responseText
+      );
+    },
+  })
+  .done( function (json) {
+    if ( json == undefined ) {
+      $("#modal_update").html("Something went wrong");
+    }
+    else {
+      $.modal.close();
+      show_cart_count();
+      $('#select-all-btn').prop('disabled', false);
+    }
+  });
 }
 </script>
 
@@ -210,10 +203,9 @@ function select_all (event) {
     <table>
     [% FOREACH hit IN results.response.docs %]
       [% SET hit_id = hit.id %]
-      [% SET json = { id = hit.id, title = hit.title, species = hit.species, object = hit.object } %]
       <tr>
         <td valign="top">
-        <input type="checkbox" name="obj_id" id="ckb_[% hit.id.replace('/', '-') %]" value="[% hit.id %]" onchange='update_cart("[% hit.id %]", $(this).is(":checked"))'>
+          <input type="checkbox" name="obj_id" value="[% hit.id %]" onchange='update_cart({ id: "[% hit.id %]", add: $(this).is(":checked"), update_count: true})'>
         </td>
         <td>
         <p>
@@ -242,11 +234,11 @@ function select_all (event) {
   </div>
 </div>
 [% ELSE %]
-  [% IF suggestions.size > 0 %]
+  [% IF results.suggestions.size > 0 %]
     <div class="well">
       Did you mean?<br/>
       <ul>
-      [% FOREACH suggestion IN suggestions %]
+      [% FOREACH suggestion IN results.suggestions %]
         <li><a href="[% suggestion.url %]">[% suggestion.title %]</a></li>
       [% END %]
       </ul>
