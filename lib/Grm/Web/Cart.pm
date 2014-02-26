@@ -1,7 +1,9 @@
 package Grm::Web::Cart;
 
+use Grm::Search;
 use Mojo::Base 'Mojolicious::Controller';
 use JSON qw( decode_json encode_json );
+use MongoDB;
 use List::MoreUtils qw( uniq );
 use Data::Dumper;
 use Grm::DB;
@@ -9,94 +11,116 @@ use Grm::DB;
 # ----------------------------------------------------------------------
 sub view {
     my $self = shift;
+    my $cart = $self->_get_cart;
 
     $self->layout('default');
-    $self->render();
 
-#    $self->respond_to(
-#        json => sub {
-#            $self->render( json => { obj_ids => \@obj_ids } );
-#        },
-#        html => sub { 
-#            $self->render( 
-#                #title   => 'cart',
-#                obj_ids => \@obj_ids 
-#            );
-#        },
-#        txt => sub { 
-#            $self->render( text => dumper({ obj_ids => \@obj_ids }));
-#        },
-#    );
+    $self->respond_to(
+        json => sub {
+            $self->render( json => { cart => $cart } );
+        },
+
+        html => sub { $self->render() },
+
+        txt => sub { 
+            $self->render( text => Dumper($cart) );
+        },
+    );
 }
 
 # ----------------------------------------------------------------------
 sub count {
     my $self  = shift;
-    my $session = $self->session;
-    my $user_id = $session->{'user_id'} || '';
+    my $cart  = $self->_get_cart;
+    my $count = scalar keys %{ $cart->{'items'} || {} };
 
-    my $count = 0;
-
-    if ( $user_id ) {
-        my $schema = Grm::DB->new('search')->schema;
-        my ($cart) = $schema->resultset('Cart')->find_or_create(
-            { user_id => $user_id }
-        );
-        my @items  = split( /,/, $cart->value() );
-
-        $count = scalar @items;
-    }
-
-    $self->render( json => { cart_count => $count  } );
+    $self->render( json => { count => $count } );
 }
 
 # ----------------------------------------------------------------------
 sub empty {
-    my $self  = shift;
-    my $count = 0;
+    my $self    = shift;
+    my $session = $self->session;
+    my $user_id = $session->{'user_id'} || '';
 
-    if ( my $user_id = $self->param('user_id') ) {
-        my $db   = Grm::DB->new('search')->dbh;
-        my $json = $db->do(
-            'delete from cart where user_id=?', {}, $user_id 
-        );
-    }
+    my ( $cart, $coll ) = $self->_get_cart;
 
-    $self->render( json => { cart_count => $count } );
+    $coll->remove({ user_id => $user_id });
+
+    $self->render( json => { count => 0 } );
 }
 
 # ----------------------------------------------------------------------
 sub edit {
     my $self    = shift;
     my $req     = $self->req;
-    my $session = $self->session;
-    my $user_id = $session->{'user_id'};
     my $action  = $self->param('action') || 'add';
-    my @items   = ( $self->param('items') );
-    my $total   = 0;
+    my $id      = $self->param('id')     ||    '';
 
-    if ( @items ) {
-        my $schema  = Grm::DB->new('search')->schema;
-        my ($cart)  = $schema->resultset('Cart')->find_or_create(
-            { user_id => $user_id }
+    my ( $cart, $coll ) = $self->_get_cart;
+    my $items           = $cart->{'items'} || {}; 
+    my $change          = 0;
+
+    if ( $action eq 'add' ) {
+        my $params  = $req->params->to_hash;
+        my $search  = Grm::Search->new;
+        my $results = $search->search( 
+            fl      => 'id,title,species,object',
+            hl      => 0,
+            facet   => 0,
+            id      => $id,
+            params  => $params,
         );
-        my @current = split( /,/, $cart->value() );
 
-        my @new = ();
-        if ( $action eq 'add' ) {
-            @new = uniq( @current, @items );
+        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
+            $items->{ $doc->{'id'} } = {
+                map { $_, $doc->{ $_ } } qw( species object title )
+            };
+            $change++;
         }
-        else {
-            my %remove = map { $_, 1 } @items;
-            @new = grep { !$remove{ $_ } } @current;
+    }
+    else {
+        if ( $id && defined $items->{ $id } ) {
+            delete $items->{ $id };
+            $change--;
         }
-
-        $total      = scalar @new;
-        $cart->value( join(',', @new) );
-        $cart->update();
     }
 
-    $self->render( json => { added => scalar @items, total => $total } );
+    $coll->update(
+        { _id => $cart->{'_id'} },
+        { '$set' => { items => $items } }
+    );
+
+    $self->render( 
+        json => { 
+            change => $change,
+            total  => scalar keys %{ $cart->{'items'} || {} },
+        } 
+    );
+}
+
+# ----------------------------------------------------------------------
+sub _get_cart {
+    my $self    = shift;
+    my $session = $self->session;
+    my $user_id = $session->{'user_id'} || '';
+    my $client  = MongoDB::MongoClient->new;
+    my $db      = $client->get_database('gramene');
+    my $coll    = $db->get_collection('carts');
+    my $carts   = $coll->find({ user_id => $user_id });
+
+    if ( $carts->count == 0 ) {
+        my $id = $coll->insert({
+            user_id => $user_id,
+            items   => {},
+        });
+
+        $carts = $coll->find({ _id => $id });
+    }
+
+    my $cart = $carts->next;
+
+    return wantarray ? ( $cart, $coll ) : $cart;
 }
 
 1;
