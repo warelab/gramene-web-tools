@@ -6,8 +6,10 @@ use MongoDB;
 use List::MoreUtils qw( uniq );
 use Data::Dumper;
 use Grm::DB;
-use Grm::Utils 'timer_calc';
-use JSON 'encode_json';
+use Grm::Utils qw( timer_calc );
+use JSON::XS qw( encode_json decode_json );
+use File::Spec::Functions;
+use Perl6::Slurp qw( slurp );
 
 # ----------------------------------------------------------------------
 sub db {
@@ -98,26 +100,31 @@ sub view {
 sub count {
     my $self    = shift;
     my $session = $self->session;
-    my $user_id = $session->{'user_id'} || '';
+    my $cart    = $self->_get_cart( $session->{'user_id'} );
+
     #my $db      = Grm::DB->new('search')->dbh;
-    my $db      = $self->db;
-    my $count   = $db->selectrow_array(
-        'select count(*) from cart where user_id=?', {}, $user_id 
-    );
+#    my $db      = $self->db;
+#    my $count   = $db->selectrow_array(
+#        'select count(*) from cart where user_id=?', {}, $user_id 
+#    );
 #    my $store   = $self->_get_store;
 #    my $count   = $store->count({ user_id => $user_id });
 
-    $self->render( json => { count => $count } );
+    $self->render( json => { count => scalar keys %$cart } );
 }
 
 # ----------------------------------------------------------------------
 sub empty {
     my $self    = shift;
     my $session = $self->session;
-    my $user_id = $session->{'user_id'} || '';
-    my $store   = $self->_get_store;
+    my $cart    = $self->_get_path( $session->{'user_id'} );
 
-    $store->remove({ user_id => $user_id });
+    unlink $cart;
+
+#    my $user_id = $session->{'user_id'} || '';
+#    my $store   = $self->_get_store;
+#
+#    $store->remove({ user_id => $user_id });
 
     $self->render( json => { count => 0 } );
 }
@@ -130,10 +137,11 @@ sub edit {
     my $req     = $self->req;
     my $action  = $self->param('action') || 'add';
     my $id      = $self->param('id')     ||    '';
-    my $store   = $self->_get_store;
+    #my $store   = $self->_get_store;
     #my $db      = Grm::DB->new('search')->dbh;
-    my $db      = $self->db;
-    my $change  = 0;
+    #my $db      = $self->db;
+
+    my $cart = $self->_get_cart( $user_id );
 
     if ( $action eq 'add' ) {
         my $params  = $req->params->to_hash;
@@ -148,36 +156,43 @@ sub edit {
         );
 
         my $t2 = timer_calc();
-        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
-            my $cart_id = $db->selectrow_array(
-                'select cart_id from cart where user_id=? and doc_id=?', {},
-                ( $user_id, $doc->{'id'} )
-            );
-
-            if ( $cart_id ) {
-                $db->do(
-                    q[
-                        update   cart
-                        set      object=?, species=?, title=?
-                    ],
-                    {},
-                    ( map { $doc->{ $_ } } qw[ object species title ] )
-                );
+        if ( %$cart ) {
+            $cart = $results->{'response'}{'docs'};
+        }
+        else {
+            for my $doc ( @{ $results->{'response'}{'docs'} } ) {
+                $cart->{ $doc->{'id'} } = $doc;
             }
-            else {
-                $db->do(
-                    q[
-                        insert
-                        into     cart
-                                 (user_id, doc_id, object, species, title)
-                        values   (?, ?, ?, ?, ?)
-                    ],
-                    {},
-                    ( $user_id, 
-                      map { $doc->{ $_ } } qw[ id object species title ] 
-                    )
-                );
-            }
+        }
+#            my $cart_id = $db->selectrow_array(
+#                'select cart_id from cart where user_id=? and doc_id=?', {},
+#                ( $user_id, $doc->{'id'} )
+#            );
+#
+#            if ( $cart_id ) {
+#                $db->do(
+#                    q[
+#                        update   cart
+#                        set      object=?, species=?, title=?
+#                    ],
+#                    {},
+#                    ( map { $doc->{ $_ } } qw[ object species title ] )
+#                );
+#            }
+#            else {
+#                $db->do(
+#                    q[
+#                        insert
+#                        into     cart
+#                                 (user_id, doc_id, object, species, title)
+#                        values   (?, ?, ?, ?, ?)
+#                    ],
+#                    {},
+#                    ( $user_id, 
+#                      map { $doc->{ $_ } } qw[ id object species title ] 
+#                    )
+#                );
+#            }
 
 #            $db->do(
 #                q[
@@ -188,9 +203,9 @@ sub edit {
 #                {},
 #                ( $user_id, map { $doc->{ $_ } } qw[id object species title] )
 #            );
-
-            $change++;
-        }
+#
+#            $change++;
+#        }
         printf STDERR "added in %s\n", $t2->();
 #        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
 #            my $info = $store->update(
@@ -203,28 +218,33 @@ sub edit {
     }
     else {
         if ( $id ) {
-            my $rows = $db->do(
-                q[
-                    delete   
-                    from     cart
-                    where    user_id=?
-                    and      doc_id=?
-                ],
-                {},
-                ( $user_id, $id )
-            );
-
-            $change -= $rows;
-
+            delete $cart->{ $id };
+        }
+#            my $rows = $db->do(
+#                q[
+#                    delete   
+#                    from     cart
+#                    where    user_id=?
+#                    and      doc_id=?
+#                ],
+#                {},
+#                ( $user_id, $id )
+#            );
+#
 #            my $info = $store->remove(
 #                { user_id => $user_id, id => $id },
 #                { safe => 1 }
 #            );
 #            $change -= $info->{'n'};
-        }
+#        }
     }
 
-    $self->render( json => { change => $change } );
+    my $path = $self->_cart_path( $user_id );
+    open my $fh, '>', $path;
+    print $fh encode_json( $cart );
+    close $fh;
+
+    $self->render( json => { count => scalar keys %$cart } );
 }
 
 # ----------------------------------------------------------------------
@@ -253,6 +273,29 @@ sub _get_store {
 #    $cart->{'time'} = $timer->( format => 'seconds' );
 #
 #    return wantarray ? ( $cart, $coll ) : $cart;
+}
+
+# ----------------------------------------------------------------------
+sub _cart_path {
+    my $self    = shift;
+    my $user_id = shift or die 'No user_id for _cart_path';
+    my $path    = catfile( $self->app->home->rel_file('data/cart'), $user_id );
+}
+
+# ----------------------------------------------------------------------
+sub _get_cart {
+    my ( $self, $user_id ) = @_;
+    my $path = $self->_cart_path( $user_id );
+    my $cart = {};
+
+    if ( -e $path ) {
+        eval { $cart = decode_json( slurp( $path ) ) };
+        if ( my $err = $@ ) {
+            $self->app->log->error( "Trouble reading cart '$path': $err" );
+        }
+    }
+
+    return $cart;
 }
 
 1;
