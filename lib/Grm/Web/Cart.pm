@@ -41,22 +41,41 @@ sub view {
 
     $self->respond_to(
         json => sub { 
-            my $count = $db->selectrow_array(
-                'select count(*) from cart where user_id=?', {}, $user_id 
-            );
-            
-            my $cart = $db->selectall_arrayref(
-                q[
-                    select   count(cart_id) as count, object, species
-                    from     cart 
-                    where    user_id=?
-                    group by 2, 3
-                ], 
-                { Columns => {} }, 
-                $user_id 
-            );
+#            my $count = $db->selectrow_array(
+#                'select count(*) from cart where user_id=?', {}, $user_id 
+#            );
+#            
+#            my $cart = $db->selectall_arrayref(
+#                q[
+#                    select   count(cart_id) as count, object, species
+#                    from     cart 
+#                    where    user_id=?
+#                    group by 2, 3
+#                ], 
+#                { Columns => {} }, 
+#                $user_id 
+#            );
+#
+            my %count = ();;
+            my $total = 0;
+            my $cart  = $self->_get_cart( $user_id );
+            while ( my ( $doc_id, $doc ) = each %$cart ) {
+                $count{ $doc->{'species'} || 'N/A' }{ $doc->{'object'} }++;
+                $total++;
+            }
 
-            $self->render( json => { count => $count, cart => $cart } );
+            my @counts;
+            for my $species ( keys %count ) {
+                while ( my ($object, $count) = each %{ $count{ $species } } ) {
+                    push @counts, {
+                        species => $species,
+                        object  => $object,
+                        count   => $count,
+                    }
+                }
+            }
+
+            $self->render( json => { count => $total, cart => \@counts } );
         },
 
         html => sub { 
@@ -117,7 +136,7 @@ sub count {
 sub empty {
     my $self    = shift;
     my $session = $self->session;
-    my $cart    = $self->_get_path( $session->{'user_id'} );
+    my $cart    = $self->_cart_path( $session->{'user_id'} );
 
     unlink $cart;
 
@@ -156,13 +175,8 @@ sub edit {
         );
 
         my $t2 = timer_calc();
-        if ( %$cart ) {
-            $cart = $results->{'response'}{'docs'};
-        }
-        else {
-            for my $doc ( @{ $results->{'response'}{'docs'} } ) {
-                $cart->{ $doc->{'id'} } = $doc;
-            }
+        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
+            $cart->{ $doc->{'id'} } = $doc;
         }
 #            my $cart_id = $db->selectrow_array(
 #                'select cart_id from cart where user_id=? and doc_id=?', {},

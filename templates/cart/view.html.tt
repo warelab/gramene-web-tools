@@ -4,63 +4,80 @@ function ucfirst(str) {
 }
 
 $(document).ready( function () {
+  $(".remove-btn").on('click', function () {
+    var val = $(this).val();
+    alert("Remove " + val);
+  });
+
   var cart = [];
   $.get(
     "[% config.url_base %][% c.url_for('/cart/view.json') %]", 
     function (data) { 
       if ( data != undefined ) { 
-        var cart = [];
-
-        $.each( data.cart.items, function (id, obj) {
-          obj['id'] = id;
-          cart.push( obj );
-        });
-
-        //console.log('cart data = ' + JSON.stringify(cart));
+        var cart = data.cart;
+        $('#h1').html('Cart (' + data.count.toLocaleString() + ')');
 
         if ( Object.keys(cart).length > 0 ) {
           $('#cart').html('<table id="cart-tbl" width="100%" class="display" cellpadding="0" cellspacing="0" border="0"></table>');
 
-          $('#cart-tbl').dataTable({
+          var dt = $('#cart-tbl').dataTable({
             "aaData": cart,
             "aoColumns": [
-              { "mData": "title", "sTitle": "Title" },
+              { "mData": "count", 
+                "sTitle": "Count",
+                "sClass": "right",
+              },
               { 
                 "mData": "object", 
                 "sTitle": "Object", 
-                "mRender": function ( data, type, full ) { return ucfirst(data) }
+                "mRender": function ( data, type, doc ) { 
+                  return ucfirst(data) 
+                }
               },
               { 
                 "mData": "species", 
                 "sTitle": "Species", 
-                "mRender": function ( data, type, full ) {
-                  return ucfirst(data.replace(/_/g, ' '));
+                "mRender": function ( data, type, doc ) { 
+                  return ucfirst(data.replace(/_/g, ' ')); 
                 }
               },
               { 
-                "mData": "id", 
-                "sTitle": "&nbsp;", 
-                "mRender": function ( data, type, full ) {
-                  return '<button class="btn btn-default remove-btn" id="' 
-                    + data +'">Remove</button>'
+                "mData": "",
+                "bSortable": false,
+                "sTitle": "Remove",
+                "mRender": function ( data, type, doc ) { 
+                  return '<button class="btn btn-default remove-btn" value="'
+                    + doc.object + ':' 
+                    + doc.species + '">Remove</button>'
                 }
               },
+              { 
+                "mData": "",
+                "bSortable": false,
+                "sTitle": "Download",
+                "mRender": function ( data, type, doc ) { 
+                  return '<button class="btn btn-default download-btn" value="' + 
+                    doc.object + ':' + doc.species + '">Download</button>'
+                }
+              }
             ]
           });
 
-          $(".remove-btn").on('click', function () {
-              var id = $(this).attr('id');
-              if ( id ) {
-                update_cart( id, false );
-              }
+          dt.fnSort( [ [0,'desc'], [1,'asc'], [2,'asc'] ] );
 
-              var currentRow = $(this).closest('tr');
-
-              if ( currentRow ) {
-                var table = $('#cart-tbl').dataTable();
-                table.fnDeleteRow(currentRow[0]);
-              }
-          });
+//          $(".remove-btn").on('click', function () {
+//              var id = $(this).attr('id');
+//              if ( id ) {
+//                update_cart( id, false );
+//              }
+//
+//              var currentRow = $(this).closest('tr');
+//
+//              if ( currentRow ) {
+//                var table = $('#cart-tbl').dataTable();
+//                table.fnDeleteRow(currentRow[0]);
+//              }
+//          });
         }
         else {
           $('#cart').html('<div class="well text-center">There is nothing in your cart.</div>');
@@ -72,4 +89,11 @@ $(document).ready( function () {
 });
 </script>
 
-<div id="cart"></div>
+<h1><div id="h1">Cart</div></h1>
+<div id="cart">
+  <div class="well text-center col-4">
+  Please wait while we retrieve your cart.
+  <br/>
+  <img src="/img/loading.gif">
+  </div>
+</div>
