@@ -33,6 +33,10 @@ sub startup {
 
     # Normal route to controller
     $r->get('/')->to('root#home');
+
+    $r->get('/feedback')->to('feedback#form');
+
+    $r->post('/feedback/submit')->to('feedback#submit');
     
     $r->get('/search')->to('search#search');
 

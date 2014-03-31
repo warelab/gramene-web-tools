@@ -39,6 +39,9 @@
       <div class="header">
         <a href="http://www.gramene.org"><img src="/img/gramene_logo.png"></a>
         [% IF title %]<span class="pull-right"><h1>[% title %]</h1></span>[% END %]
+        <span class="pull-right">
+          <a href="/feedback">Feedback</a>
+        </span>
       </div>
     </div> <!-- /container -->
 
