@@ -1,31 +1,85 @@
 <script>
+
+// ----------------------------------------------------------------------
 function ucfirst(str) {
   return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
 }
+  
+// ----------------------------------------------------------------------
+function lesser_of (val, list) {
+  for (var i = 0; i < list.length - 1; i++) {
+    if (val <= list[i]) { return list[i] }
+  }
+  return list[list.length - 1];
+}
 
-$(document).ready( function () {
-  $(".remove-btn").on('click', function () {
-    var val = $(this).val();
-    alert("Remove " + val);
+// ----------------------------------------------------------------------
+function download_btn (event) {
+  event.preventDefault();
+
+  $.modal('Preparing download file<br/><img src="/img/loading.gif">');
+
+  $.get('[% config.url_base %]/cart/download', function (json) { 
+    $.modal.close();
+    window.location.href = 
+      '[% config.url_base %]/tmp/' + json.filename;
   });
+}
 
-  var cart = [];
+// ----------------------------------------------------------------------
+function set_cart_count (count) {
+  $('#h1').html('Cart (' + count.toLocaleString() + ')');
+}
+
+// ----------------------------------------------------------------------
+function remove_btn (event) {
+  event.preventDefault();
+  var type = $(this).val();
+  console.log('remove type = ' + type);
+
+  $.post(
+    '[% config.url_base %]/cart/edit?action=remove&type=' + type,
+    function (res) { console.log('remove res = ' + JSON.stringify(res)); set_cart_count(res.count) }
+  );
+
+  var currentRow = $(this).closest('tr');
+
+  if ( currentRow ) {
+    var table = $('#cart-tbl').dataTable();
+    table.fnDeleteRow(currentRow[0]);
+  }
+}
+
+// ----------------------------------------------------------------------
+$(document).ready( function () {
+  var dataTable;
   $.get(
     "[% config.url_base %][% c.url_for('/cart/view.json') %]", 
     function (data) { 
       if ( data != undefined ) { 
-        var cart = data.cart;
-        $('#h1').html('Cart (' + data.count.toLocaleString() + ')');
+        var cart = data.summary;
+        set_cart_count( data.total );
+        var num_records = Object.keys(cart).length;
 
-        if ( Object.keys(cart).length > 0 ) {
-          $('#cart').html('<table id="cart-tbl" width="100%" class="display" cellpadding="0" cellspacing="0" border="0"></table>');
+        if ( num_records > 0 ) {
+          $('#cart').html(
+            '<div  style="text-align:right; padding-bottom:1em;">' +
+            '<button class="btn btn-primary download-btn">Download</button>' +
+            '</div>' +
+            '<table id="cart-tbl" width="100%" class="display" ' +
+            'cellpadding="0" cellspacing="0" border="0"></table>'
+          );
 
-          var dt = $('#cart-tbl').dataTable({
+          dataTable = $('#cart-tbl').dataTable({
             "aaData": cart,
+            "iDisplayLength": lesser_of( num_records, [10, 25, 50, 100] ),
             "aoColumns": [
               { "mData": "count", 
                 "sTitle": "Count",
                 "sClass": "right",
+                "mRender": function ( data, type, doc ) { 
+                  return data;
+                }
               },
               { 
                 "mData": "object", 
@@ -42,42 +96,22 @@ $(document).ready( function () {
                 }
               },
               { 
-                "mData": "",
+                "mData": null,
                 "bSortable": false,
                 "sTitle": "Remove",
                 "mRender": function ( data, type, doc ) { 
-                  return '<button class="btn btn-default remove-btn" value="'
-                    + doc.object + ':' 
-                    + doc.species + '">Remove</button>'
-                }
-              },
-              { 
-                "mData": "",
-                "bSortable": false,
-                "sTitle": "Download",
-                "mRender": function ( data, type, doc ) { 
-                  return '<button class="btn btn-default download-btn" value="' + 
-                    doc.object + ':' + doc.species + '">Download</button>'
+                  var type = doc.object + ':' + doc.species;
+                  return '<button class="btn btn-default remove-btn" value="' + type + '">Remove</button>';
                 }
               }
             ]
           });
 
-          dt.fnSort( [ [0,'desc'], [1,'asc'], [2,'asc'] ] );
+          dataTable.fnSort( [ [0,'desc'], [1,'asc'], [2,'asc'] ] );
 
-//          $(".remove-btn").on('click', function () {
-//              var id = $(this).attr('id');
-//              if ( id ) {
-//                update_cart( id, false );
-//              }
-//
-//              var currentRow = $(this).closest('tr');
-//
-//              if ( currentRow ) {
-//                var table = $('#cart-tbl').dataTable();
-//                table.fnDeleteRow(currentRow[0]);
-//              }
-//          });
+          $(".download-btn").on('click', download_btn);
+
+          $(".remove-btn").on('click', remove_btn);
         }
         else {
           $('#cart').html('<div class="well text-center">There is nothing in your cart.</div>');
@@ -85,15 +119,19 @@ $(document).ready( function () {
       }
     }
   );
-
 });
 </script>
 
 <h1><div id="h1">Cart</div></h1>
+
+[% PROCESS 'search/search-box.tmpl' %]
+
+<form id="form">
 <div id="cart">
   <div class="well text-center col-4">
   Please wait while we retrieve your cart.
   <br/>
   <img src="/img/loading.gif">
   </div>
+</form>
 </div>

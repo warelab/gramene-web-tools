@@ -8,7 +8,7 @@ use Data::Dumper;
 use Data::Pageset;
 use JSON qw( encode_json decode_json );
 use LWP::UserAgent;
-use List::Util qw( max );
+use List::Util qw( max sum );
 use List::MoreUtils qw( uniq );
 use Mail::Sendmail qw( sendmail );
 use Mojo::Util qw( squish trim unquote url_unescape );
@@ -104,75 +104,79 @@ sub search {
         },
 
         html => sub { 
-            my $pager;
-            my $num_found = $results->{'response'}{'numFound'} || 0;
+            my $num_found = $results->{'num_found'};
+
             if ( $num_found > 0 ) {
                 my $conf      = Grm::Config->new->get('search');
                 my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
 
-                for my $doc ( @{ $results->{'response'}{'docs'} || [] } ) {
-                    my $id = $doc->{'id'};
-                    if ( 
-                        my $hl = $results->{'highlighting'}{ $id }{'content'} 
-                    ) {
-                        $doc->{'content'} = $hl;
+                while ( 
+                    my ($core, $response) = each %{ $results->{'core'} || {} }
+                ) {
+                    for my $doc ( @{ $response->{'response'}{'docs'} || [] } ) {
+                        my $id = $doc->{'id'};
+                        if ( my $hl = 
+                            $response->{'highlighting'}{ $id }{'content'} 
+                        ) {
+                            $doc->{'content'} = $hl;
+                        }
+
+                        my ( $module, $table, $pk ) = split /\//, $id;
+                        $doc->{'url'} = make_web_link(
+                            link_conf => \%view_link,
+                            module    => $module,
+                            table     => $table,
+                            id        => $pk,
+                        );
                     }
 
-                    my ( $module, $table, $pk ) = split /\//, $id;
-                    $doc->{'url'} = make_web_link(
-                        link_conf => \%view_link,
-                        module    => $module,
-                        table     => $table,
-                        id        => $pk,
-                    );
-                }
-
-                if ( $num_found > $page_size ) {
-                    $pager = Data::Pageset->new({
-                        total_entries    => $num_found,
-                        current_page     => $page_num,
-                        entries_per_page => $page_size,
-                    });
-                }
-
-                my %facets = %{ 
-                    $results->{'facet_counts'}{'facet_fields'} || {} 
-                };
-
-                for my $facet_name ( grep { !/^ontology$/ } keys %facets ) {
-                    my %facet = @{ $facets{ $facet_name } };
-
-                    if ( scalar keys %facet == 1 ) {
-                        delete $facets{ $facet_name };
-                    }
-                }
-
-                my @ontologies = @{ $facets{'ontology'} || [] };
-                my %ont_facets;
-                while ( my ($term, $count) = splice(@ontologies, 0, 2) ) {
-                    ( my $prefix = $term ) =~ s/:.*//;
-                    if ( my $term_name = $odb->db->dbh->selectrow_array(
-                            'select name from term where term_accession=?',
-                            {},
-                            $term
-                        )
-                    ) {
-                        $term = sprintf '%s (%s)', $term, $term_name;
+                    if ( $num_found > $page_size ) {
+                        $response->{'pager'} = 
+                            Data::Pageset->new({
+                                total_entries    => $num_found,
+                                current_page     => $page_num,
+                                entries_per_page => $page_size,
+                            });
                     }
 
-                    push @{ $ont_facets{ $prefix } }, ( $term, $count );
+                    my %facets = %{ 
+                        $response->{'facet_counts'}{'facet_fields'} || {} 
+                    };
+
+                    for my $facet_name (  keys %facets ) {
+                        my %facet = @{ $facets{ $facet_name } };
+
+                        if ( scalar keys %facet == 1 ) {
+                            delete $facets{ $facet_name };
+                        }
+                    }
+
+                    my @ontologies = @{ $facets{'ontology'} || [] };
+                    my %ont_facets;
+                    while ( my ($term, $count) = splice(@ontologies, 0, 2) ) {
+                        ( my $prefix = $term ) =~ s/:.*//;
+                        if ( my $term_name = $odb->db->dbh->selectrow_array(
+                                'select name from term where term_accession=?',
+                                {},
+                                $term
+                            )
+                        ) {
+                            $term = sprintf '%s (%s)', $term, $term_name;
+                        }
+
+                        push @{ $ont_facets{ $prefix } }, ( $term, $count );
+                    }
+
+                    $facets{'ontology'} = \%ont_facets;
+
+                    $response->{'facet_counts'}{'facet_fields'} = \%facets;
                 }
-
-                $facets{'ontology'} = \%ont_facets;
-
-                $results->{'facet_counts'}{'facet_fields'} = \%facets;
             }
 
             $self->render( 
-                session     => $session,
-                config      => $web_conf,
-                results     => $results,
-                pager       => $pager,
+                session => $session,
+                config  => $web_conf,
+                results => $results,
             );
         },
         

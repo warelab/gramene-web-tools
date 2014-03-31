@@ -1,64 +1,68 @@
 package Grm::Web::Cart;
 
-use Grm::Search;
-use Mojo::Base 'Mojolicious::Controller';
-use MongoDB;
-use List::MoreUtils qw( uniq );
 use Data::Dumper;
+use File::Basename qw( basename );
+use File::Copy qw( move );
+use File::Path qw( mkpath );
+use File::Spec::Functions;
+use File::Temp qw( tempfile );
 use Grm::DB;
+use Grm::Search;
 use Grm::Utils qw( timer_calc );
 use JSON::XS qw( encode_json decode_json );
-use File::Spec::Functions;
+use IO::Compress::Gzip qw( gzip $GzipError );
+use List::MoreUtils qw( uniq );
+use Mojo::Base 'Mojolicious::Controller';
+use MongoDB;
 use Perl6::Slurp qw( slurp );
 
 # ----------------------------------------------------------------------
-sub db {
+sub download {
     my $self    = shift;
-    my $db_file = $self->app->home->rel_file('data/cart.db');
-    my $db      = DBI->connect("dbi:SQLite:dbname=$db_file", '', '');
-    return $db;
+    my $session = $self->session;
+    my $user_id = $session->{'user_id'} || '';
+    my $coll    = $self->_get_store();
+    my $rec     = $coll->find({ user_id => $user_id })->next;
+    my $cart    = $rec->{'items'} ? $rec->{'items'} : {};
+
+    my $download_dir = $self->app->home->rel_file('public/tmp');
+    if ( !-d $download_dir ) {
+        mkpath $download_dir;
+    }
+
+    my ( $fh, $filename ) = tempfile( 'cartXXXXXX', DIR => $download_dir );
+    print $fh join( "\t", qw[ species object title ] ), "\n";
+
+    while ( my ( $doc_id, $doc ) = each %$cart ) {
+        my ( $module, $table, $pk ) = split( /\//, $doc_id );
+        print $fh 
+            join( "\t", map { $doc->{ $_ } } qw[ species object title ] ),
+            "\n";
+    }
+    close $fh;
+
+    my $gzipped = $filename . '.txt.gz'; # tempfile doesn't allow suffixes
+    my $status  = gzip $filename => $gzipped or die "gzip failed: $GzipError\n";
+    unlink $filename;
+
+    $self->render( json => { filename => basename($gzipped) } );
 }
 
 # ----------------------------------------------------------------------
 sub view {
-    my $self     = shift;
-    my $session  = $self->session;
-    my $user_id  = $session->{'user_id'} || '';
-    my $store    = $self->_get_store;
-    #my $db       = Grm::DB->new('search')->dbh;
-    my $db       = $self->db;
-
-    my $itemizer = sub {
-        my $cursor = $store->find({ user_id => $user_id });
-        my @items;
-        while ( my $item = $cursor->next ) {
-            push @items, $item;
-        }
-        return @items;
-    };
+    my $self    = shift;
+    my $session = $self->session;
+    my $user_id = $session->{'user_id'} || '';
+    my $coll    = $self->_get_store();
 
     $self->layout('default');
 
     $self->respond_to(
         json => sub { 
-#            my $count = $db->selectrow_array(
-#                'select count(*) from cart where user_id=?', {}, $user_id 
-#            );
-#            
-#            my $cart = $db->selectall_arrayref(
-#                q[
-#                    select   count(cart_id) as count, object, species
-#                    from     cart 
-#                    where    user_id=?
-#                    group by 2, 3
-#                ], 
-#                { Columns => {} }, 
-#                $user_id 
-#            );
-#
-            my %count = ();;
+            my $rec   = $coll->find({ user_id => $user_id })->next;
+            my $cart  = $rec->{'items'} ? $rec->{'items'} : {};
+            my %count = ();
             my $total = 0;
-            my $cart  = $self->_get_cart( $user_id );
             while ( my ( $doc_id, $doc ) = each %$cart ) {
                 $count{ $doc->{'species'} || 'N/A' }{ $doc->{'object'} }++;
                 $total++;
@@ -75,39 +79,24 @@ sub view {
                 }
             }
 
-            $self->render( json => { count => $total, cart => \@counts } );
+            $self->render( json => { total => $total, summary => \@counts } );
         },
 
         html => sub { 
-#            my $count = $store->count({ user_id => $user_id });
-#            my @cart  = 
-#                map {
-#                    for my $k ( keys %{ $_->{'_id'} } ) {
-#                        $_->{ $k } = $_->{'_id'}{ $k };
-#                    }
-#                    $_
-#                }
-#                @{ $store->aggregate([
-#                    { '$match' => { 'user_id' => $user_id } },
-#                    { '$group' => {
-#                        '_id'  => { 
-#                            object => '$object', species => '$species' 
-#                        },
-#                        'count' => { '$sum'  => 1 }
-#                    }}
-#                ]) };
-
-            $self->render();# count => $count, cart => $cart );
+            $self->render();
         },
 
         txt => sub { 
-            my @out;
-            if ( my @items = $itemizer->() ) {
-                my @cols = keys %{ $items[0] };
-                push @out, join( "\t", @cols );
-                for my $item ( @items ) {
-                    push @out, join( "\t", map { $item->{$_} } @cols );
+            my $rec   = $coll->find({ user_id => $user_id })->next;
+            my $cart  = $rec->{'items'} ? $rec->{'items'} : {};
+            my ( @out, @cols );
+            while ( my ( $doc_id, $doc ) = each %$cart ) {
+                if ( !@cols ) {
+                    @cols = keys %$doc;
+                    push @out, join( "\t", @cols );
                 }
+
+                push @out, join( "\t", map { $doc->{$_} } @cols );
             }
 
             $self->render( text => join( "\n", @out ) );
@@ -119,31 +108,22 @@ sub view {
 sub count {
     my $self    = shift;
     my $session = $self->session;
-    my $cart    = $self->_get_cart( $session->{'user_id'} );
+    my $user_id = $session->{'user_id'} || '';
+    my $coll    = $self->_get_store();
+    my $rec     = $coll->find({ user_id => $user_id })->next;
+    my $count   = ref $rec eq 'HASH' ? $rec->{'count'} : 0;
 
-    #my $db      = Grm::DB->new('search')->dbh;
-#    my $db      = $self->db;
-#    my $count   = $db->selectrow_array(
-#        'select count(*) from cart where user_id=?', {}, $user_id 
-#    );
-#    my $store   = $self->_get_store;
-#    my $count   = $store->count({ user_id => $user_id });
-
-    $self->render( json => { count => scalar keys %$cart } );
+    $self->render( json => { count => $count } );
 }
 
 # ----------------------------------------------------------------------
 sub empty {
     my $self    = shift;
     my $session = $self->session;
-    my $cart    = $self->_cart_path( $session->{'user_id'} );
+    my $user_id = $session->{'user_id'} || '';
+    my $coll    = $self->_get_store();
 
-    unlink $cart;
-
-#    my $user_id = $session->{'user_id'} || '';
-#    my $store   = $self->_get_store;
-#
-#    $store->remove({ user_id => $user_id });
+    $coll->remove({ user_id => $user_id });
 
     $self->render( json => { count => 0 } );
 }
@@ -154,30 +134,91 @@ sub edit {
     my $session = $self->session;
     my $user_id = $session->{'user_id'} || '';
     my $req     = $self->req;
-    my $action  = $self->param('action') || 'add';
-    my $id      = $self->param('id')     ||    '';
-    #my $store   = $self->_get_store;
-    #my $db      = Grm::DB->new('search')->dbh;
-    #my $db      = $self->db;
+    my $params  = $req->params->to_hash;
+    my $action  = lc $self->param('action') || 'add';
+    my @ids     = split( /\s*,\s*/, $self->param('id')   || '' );
+    my @types   = (
+        map { [ split( /:/, $_ ) ] } 
+        split( /\s*,\s*/, $self->param('type') || '' )
+    );
 
-    my $cart = $self->_get_cart( $user_id );
+    my $coll  = $self->_get_store();
+    my $rec   = $coll->find({ user_id => $user_id })->next;
+    my $cart  = $rec->{'items'} ? $rec->{'items'} : {};
 
     if ( $action eq 'add' ) {
-        my $params  = $req->params->to_hash;
-        my $search  = Grm::Search->new;
-        my $db      = $self->db;
-        my $results = $search->search( 
-            fl      => 'id,title,species,object',
-            hl      => 0,
-            facet   => 0,
-            id      => $id,
-            params  => $params,
-        );
+        if ( !@ids ) { @ids = ('') } # at least one
 
-        my $t2 = timer_calc();
-        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
-            $cart->{ $doc->{'id'} } = $doc;
+        for my $id ( @ids ) {
+            my $search  = Grm::Search->new;
+            my $results = $search->search( 
+                fl      => 'id,title,species,object',
+                hl      => 0,
+                facet   => 0,
+                id      => $id,
+                params  => $params,
+            );
+
+            for my $doc ( @{ $results->{'response'}{'docs'} } ) {
+                $cart->{ $doc->{'id'} } = $doc;
+            }
         }
+    }
+    else {
+        if ( @ids ) {
+            map { delete $cart->{ $_ } } @ids;
+        }
+        elsif ( @types ) {
+            DOC:
+            while ( my ( $doc_id, $doc ) = each %$cart ) {
+                for my $type ( @types ) {
+                    my ( $object, $species ) = @$type;
+                    next if $doc->{'object'} ne $object;
+                    next if $doc->{'species'} 
+                        && ($doc->{'species'} eq $species);
+
+                    delete $cart->{ $doc_id };
+                    next DOC;
+                }
+            }
+        }
+    }
+
+    my $count = scalar keys %{ $cart } || 0;
+
+    if ( $count > 0 ) {
+        $coll->update(
+            { user_id => $user_id },
+            { '$set'  => { items => $cart, count => $count } },
+            { upsert  => 1 }
+        );
+    }
+    else {
+        $coll->remove({ user_id => $user_id });
+    }
+
+#    if ( $count > 0 ) {
+#        if ( $cart_id ) {
+#            $db->do(
+#                'update cart set count=?, content=? where cart_id=?', {},
+#                ( $count, encode_json( $cart ), $cart_id )
+#            );
+#        }
+#        else {
+#            $db->do(
+#                'insert into cart (user_id, count, content) values (?, ?, ?)', 
+#                {},
+#                ( $user_id, $count, encode_json( $cart ) )
+#            );
+#        }
+#    }
+#    else {
+#        $db->do( 'delete from cart where user_id=?', {}, $user_id );
+#    }
+
+    $self->render( json => { count => $count } );
+}
+
 #            my $cart_id = $db->selectrow_array(
 #                'select cart_id from cart where user_id=? and doc_id=?', {},
 #                ( $user_id, $doc->{'id'} )
@@ -220,7 +261,6 @@ sub edit {
 #
 #            $change++;
 #        }
-        printf STDERR "added in %s\n", $t2->();
 #        for my $doc ( @{ $results->{'response'}{'docs'} } ) {
 #            my $info = $store->update(
 #                { user_id => $user_id, id => $doc->{'id'} },
@@ -229,11 +269,6 @@ sub edit {
 #            );
 #            $change += $info->{'n'};
 #        }
-    }
-    else {
-        if ( $id ) {
-            delete $cart->{ $id };
-        }
 #            my $rows = $db->do(
 #                q[
 #                    delete   
@@ -251,36 +286,33 @@ sub edit {
 #            );
 #            $change -= $info->{'n'};
 #        }
-    }
-
-    my $path = $self->_cart_path( $user_id );
-    open my $fh, '>', $path;
-    print $fh encode_json( $cart );
-    close $fh;
-
-    $self->render( json => { count => scalar keys %$cart } );
-}
+#    }
+#
+#    my $path = $self->_cart_path( $user_id );
+#    open my $fh, '>', $path;
+#    print $fh encode_json( $cart );
+#    close $fh;
 
 # ----------------------------------------------------------------------
 sub _get_store {
     my $self    = shift;
-    my $session = $self->session;
-    my $user_id = $session->{'user_id'} || '';
+#    my $session = $self->session;
+#    my $user_id = $session->{'user_id'} || '';
     my $client  = MongoDB::MongoClient->new;
     my $db      = $client->get_database('gramene');
-
-    return $db->get_collection('carts');
-
 #    my $carts   = $coll->find({ user_id => $user_id });
-#
+
 #    if ( $carts->count == 0 ) {
 #        my $id = $coll->insert({
 #            user_id => $user_id,
+#            count   => 0,
 #            items   => {},
 #        });
 #
-#        $carts = $coll->find({ _id => $id });
+##        $carts = $coll->find({ _id => $id });
 #    }
+
+    return $db->get_collection('carts');
 #
 #    my $cart = $carts->next;
 #

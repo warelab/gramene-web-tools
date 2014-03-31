@@ -41,18 +41,17 @@ function select_showing_toggle (event) {
   var check_val = 
     $('#select-showing-btn').val() == 'Select These' ? true : false;
 
-  $('input[name=obj_id]').each(function() {
-    if ( $(this).prop('checked') != check_val ) {
-      $(this).prop('checked', check_val);
-      update_cart({ id: $(this).val(), add: check_val, update_count: false });
-    }
-  });
-
   $('#select-showing-btn').attr('value', 
     check_val ? 'Unselect These' : 'Select These'
   );
 
-  show_cart_count(); 
+  var ids = []
+  $('input[name=obj_id]').each(function() {
+    $(this).prop('checked', check_val);
+    ids.push( $(this).val() );
+  }).promise().done( function() { 
+    update_cart({ id: ids.join(','), add: check_val, update_count: true });
+  });
 }
 
 // ------------------------------------------
@@ -62,7 +61,7 @@ function select_all (event) {
 
   $('#select-all-btn').prop('disabled', true);
 
-  var total = [% results.response.numFound -%];
+  var total = [% results.response.numFound OR '0' %];
 
   $.modal('<h1>Adding</h1><div class="well text-center" id="modal_update">Please wait while we fetch ' + total.toLocaleString() + ' records<br/><img src="/img/loading.gif"></div>');
 
@@ -72,14 +71,7 @@ function select_all (event) {
   $.ajax({
     url: url,
     error: function (xhr, text_status, error_thrown) {
-      $('#modal_update').html(
-        + text_status
-        + " calling &quot;" + url + "&quot;"
-        + " ("
-        + error_thrown
-        + ")<br/>"
-        + xhr.responseText
-      );
+      console.log('error = ' + text_status + " calling url " + url + ": " + error_thrown);
     },
   })
   .done( function (json) {
@@ -92,6 +84,8 @@ function select_all (event) {
       $('#select-all-btn').prop('disabled', false);
     }
   });
+
+  window.location.href = '[% config.url_base %]/cart/view';
 }
 </script>
 
@@ -251,3 +245,5 @@ function select_all (event) {
     </div>
   [% END %]
 [% END %]
+
+results = <pre>[% USE dumper; dumper.dump(results) %]</pre>

@@ -28,6 +28,8 @@ sub startup {
     # Documentation browser under "/perldoc"
     $self->plugin('PODRenderer');
 
+    $self->sessions->default_expiration(86400);
+
     # Router
     my $r = $self->routes;
 
@@ -35,6 +37,8 @@ sub startup {
     $r->get('/')->to('root#home');
 
     $r->any('/cart/edit')->to('cart#edit');
+
+    $r->any('/cart/download')->to('cart#download');
 
     $r->any('/cart/count')->to('cart#count');
 
