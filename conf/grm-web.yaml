@@ -1,4 +1,4 @@
-url_base: "http://apps.gramene.org"
+url_base: "http://tools.gramene.org"
 
 secret: "This land is your land, this land is my land."
 
@@ -40,3 +40,21 @@ view:
     pathway_zea_mays-search: "TT:http://pathway.gramene.org/MAIZE/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
 
     reactome_oryza_sativa-reactome: "TT:http://plantreactome.gramene.org/entitylevelview/PathwayBrowser.html#DB=test_slice_oryza_sativa_06&FOCUS_SPECIES_ID=186860&FOCUS_PATHWAY_ID=[% object.pathway_id %]&ID=[% object.object_id %]"
+
+feedback:
+  trusted_ips:
+    - 67.175.143.*
+
+  captcha_dir: "/usr/local/gramene/html/tmp/captcha"
+
+  captcha_keys: 
+    gramene.org:
+      public: "6LdrQwEAAAAAAI7j5o-VVGsTqLb2gZ_-VuulW4k4"
+      private: "6LdrQwEAAAAAACD8RGeQRNnfB15y2UTo6tEo0hmU"
+    cshl.edu:
+      public: "6Lf9GQMAAAAAAI5-ZPxwfVOY4dh8O6aMRSj4IVKI"
+      private: "6Lf9GQMAAAAAADe9ZoeO9Yw7kda-KcjbzgSPNa5d"
+    cshl.org:
+      public: "6Lf9FtMSAAAAAAvOVvknSaN4Fmq07vu2fRRQZSSX"
+      private: "6Lf9FtMSAAAAAC1BObb4pkM9uD8HT0OD8_HvJuWl"
+

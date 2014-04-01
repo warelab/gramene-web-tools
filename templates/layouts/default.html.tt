@@ -104,11 +104,13 @@
       <div class="header">
         <a href="http://www.gramene.org"><img src="/img/gramene_logo.png"></a>
         [% IF title %]<span class="pull-right"><h1>[% title %]</h1></span>[% END %]
-
         <span class="pull-right">
           <a href="/cart/view"><img src="/img/cart.png"><span id="cart_count" class="badge"></span></a>
           <a href="javascript:empty_cart();"><span class="glyphicon glyphicon-remove-sign"></span></a>
         </div>
+        <span class="pull-right">
+          <a href="/feedback">Feedback</a>
+        </span>
       </div>
     </div> <!-- /container -->
 

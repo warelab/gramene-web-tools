@@ -36,6 +36,7 @@ sub startup {
     # Normal route to controller
     $r->get('/')->to('root#home');
 
+<<<<<<< HEAD
     $r->any('/cart/edit')->to('cart#edit');
 
     $r->any('/cart/download')->to('cart#download');
@@ -45,6 +46,11 @@ sub startup {
     $r->post('/cart/empty')->to('cart#empty');
 
     $r->get('/cart/view')->to('cart#view');
+=======
+    $r->get('/feedback')->to('feedback#form');
+
+    $r->post('/feedback/submit')->to('feedback#submit');
+>>>>>>> feedback
     
     $r->get('/search')->to('search#search');
 
