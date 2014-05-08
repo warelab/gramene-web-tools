@@ -14,7 +14,7 @@ use Mail::Sendmail qw( sendmail );
 use Mojo::Util qw( squish trim unquote url_unescape );
 use Readonly;
 
-use lib '/usr/local/gramene-40/gramene-lib/lib';
+use lib '/usr/local/gramene/gramene-lib/lib';
 use Grm::Config;
 use Grm::Search;
 use Grm::DB;
