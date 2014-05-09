@@ -1,0 +1,29 @@
+[% IF items.size > 0 %]
+  <h2 class="">Your Cart</h2>
+  [% SET count = items.size %]
+  You have [% count %] item[% IF count == 1; ''; ELSE; 's'; END %] in your cart.
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Module</th>
+        <th>Table</th>
+        <th>ID</th>
+        <th>URL</th>
+        <th>Remove</th>
+      </tr>
+    </thead>
+    <tbody>
+    [% FOREACH item IN items %]
+      <tr>
+        <td>[% item.module %]</td>
+        <td>[% item.table %]</td>
+        <td>[% item.id %]</td>
+        <td>[% item.hit_id %]</td>
+        <td><a href="javascript:remove_item('[% item.hit_id %]');"><span class="glyphicon glyphicon-remove-sign"></span></a></td>
+      </tr>
+    [% END %]
+    </tbody>
+  </table>
+[% ELSE %]
+  Nothing in your cart.
+[% END %]

@@ -49,10 +49,10 @@ function get_page(qry_string) {
 }
 
 $(document).ready( function () {
-  var query = getParameterByName('query');
+  var oquery = getParameterByName('oquery');
 
-  if (query != undefined) {
-    $('#query').val(query);
+  if (oquery != undefined) {
+    $('#oquery').val(oquery);
     var qry_string = document.URL.split('?')[1];
     get_page( qry_string );
   }
@@ -62,15 +62,19 @@ $(document).ready( function () {
 
 <div class="container container-fluid">
   <div class="span8 text-center">
-    <form id="form-search" class="form-inline" action="[% c.req.base_url %]" method="get">
-      <input class="span3" type="text" id="query" value="" placeholder="Search" name="query">
-      <select class="span2" name="term_type_id">
-        <option value="">--Select--</option>
-        [% FOREACH type IN term_types %]
-        <option [% IF type.term_type_id == c.req.param('term_type_id'); ' selected '; END %]value="[% type.term_type_id %]">[% type.term_type.ucfirst.replace('_', ' ') %] ([% type.prefix %])</option>
-        [% END %]
-      </select>
-      <button class="grm-search-btn span2" type="submit">Search</button>
+    <form id="form-search" role="search" class="form-inline" action="[% c.req.base_url %]" method="get">
+      <div class="form-group">
+        <input class="form-control" type="text" id="oquery" value="" placeholder="Search" name="oquery">
+      </div>
+      <div class="form-group">
+        <select class="form-control" name="term_type_id">
+          <option value="">--Select--</option>
+          [% FOREACH type IN term_types %]
+          <option [% IF type.term_type_id == c.req.param('term_type_id'); ' selected '; END %]value="[% type.term_type_id %]">[% type.term_type.ucfirst.replace('_', ' ') %] ([% type.prefix %])</option>
+          [% END %]
+        </select>
+      </div>
+      <button class="btn btn-default" type="submit">Search</button>
     </form>
   </div>
 </div>
@@ -80,9 +84,9 @@ $(document).ready( function () {
 <div class="container" id="search-results">
   <div class="well text-center">
     Here you can search just the Gramene ontology database, e.g., 
-      <a href="[% c.req.base_url %]?query=GR_tax:013681">GR_tax:013681</a>,
-      <a href="[% c.req.base_url %]?query=cold+tolerance">cold tolerance</a>,
-      <a href="[% c.req.base_url %]?query=drought">drought</a>.
+      <a href="[% c.req.base_url %]?oquery=GR_tax:013681">GR_tax:013681</a>,
+      <a href="[% c.req.base_url %]?oquery=cold+tolerance">cold tolerance</a>,
+      <a href="[% c.req.base_url %]?oquery=drought">drought</a>.
   </div>
 
   <div class="container">
@@ -94,7 +98,7 @@ $(document).ready( function () {
       </tr>
       [% FOREACH tt IN term_types %]
         <tr>
-          <td>[% tt.term_type %]</td>
+          <td>[% tt.term_type.ucfirst.replace('_', ' ') %]</td>
           <td>[% tt.prefix %]</td>
           <td align="right">[% tt.num_terms | comma %]</td>
         </tr>

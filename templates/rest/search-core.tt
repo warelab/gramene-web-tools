@@ -1,4 +1,4 @@
-[% IF results.response.numFound > 0 %]
+[% IF core_results.response.numFound > 0 %]
   <div class="col-md-3">
     <form id="facets-form">
     <div id="sidebar" class="panel-group">
@@ -27,12 +27,12 @@
             [% END %]
           [% END %]
           <div class="text-center">
-            Found [% results.response.numFound | comma %] in [% time = results.time; IF time < 1; POSIX.ceil(time * 100) _ ' ms'; ELSE; POSIX.ceil(time) _ ' seconds'; END  %].
+            Found [% core_results.response.numFound | comma %] in [% time = core_results.time; IF time < 1; POSIX.ceil(time * 100) _ ' ms'; ELSE; POSIX.ceil(time) _ ' seconds'; END  %].
           </div>
         </div>
       </div>
 
-      [% SET i=0; SET facets = results.facet_counts.facet_fields %]
+      [% SET i=0; SET facets = core_results.facet_counts.facet_fields %]
       [% FOREACH facet_fld IN facets.keys.sort %]
       [% SET facet_size = facets.$facet_fld.size OR 0; NEXT UNLESS facet_size > 0 %]
         <div class="panel panel-default">
@@ -68,7 +68,7 @@
 
   <div class="col-md-8">
     <table>
-    [% FOREACH hit IN results.response.docs %]
+    [% FOREACH hit IN core_results.response.docs %]
       [% SET hit_id = hit.id %]
       <tr>
         <td valign="top">
@@ -84,10 +84,10 @@
     [% END %]
     </table>
 
-    [% IF results.pager %]
+    [% IF core_results.pager %]
     <div class="text-center">
     <ul class="pagination">
-      [% FOREACH page IN results.pager.pages_in_set %]
+      [% FOREACH page IN core_results.pager.pages_in_set %]
       <li[% IF page == pager.current_page %] class="active"[% END %]><a href="" onclick="javascript:refine(event, { 'page_num': '[% page %]'}); return false;">[% page %]</a></li>
       [% END %]
     </ul>
@@ -112,8 +112,8 @@
 [% ELSE %]
   <div class="well">
     No results for [% name %].
-    [% IF results.error %]
-      <b>Error:</b> [% results.error %]
+    [% IF core_results.error %]
+      <b>Error:</b> [% core_results.error %]
     [% END %]
   </div>
 [% END %]

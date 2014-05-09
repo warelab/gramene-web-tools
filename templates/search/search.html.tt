@@ -1,12 +1,60 @@
 [%- USE Comma -%]
 
+<script id="results-template" type="text/x-handlebars-template">
+  <div class="text-center">Found {{num_found}} in {{time}} seconds.</div>
+  <ul class="nav nav-tabs" id="core-tabs">
+    {{#each cores}}
+      <li>
+        <a href="#core-{{core_name}}" data-toggle="tab">{{pretty_str core_name}} ({{comma response.numFound}})</a>
+      </li>
+    {{/each}}
+  </ul>
+
+  <div class="tab-content">
+    {{#each cores}}
+    <div class="tab-pane" id="core-{{core_name}}">
+      <table>
+        {{#each response.docs}}
+          <tr>
+            <td valign="top">
+              <input type="checkbox" name="obj_id" value="{{id}}" onchange='update_cart({ id: "{{id}}", add: $(this).is(":checked"), update_count: true})'>
+            </td>
+            <td>
+              <p>
+                <a target="_blank" href="/view/{{id}}">{{title}}</a><br/>
+                {{{content}}}
+              </p>
+            </td>
+        {{/each}}
+      </table>
+
+      {{#if pager}}
+        <div class="text-center">
+          <ul class="pagination">
+            {{#each pager.pages}}
+              <li {{#if this ><a href="/foo">{{this}}</a></li>
+            {{/each}}
+          </ul>
+        </div>
+      {{/if}}
+
+    </div>
+    {{/each}}
+  </div>
+
+</script>
+
 <script>
+// ------------------------------------------
 function getParameterByName(name) {
+// ------------------------------------------
   var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
   return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
 }
 
+// ------------------------------------------
 function show_loading_gif() {
+// ------------------------------------------
   $('#search-results').html(
     '<div class="text-center">' 
     + '<img src="/img/loading.gif"><br/>'
@@ -14,7 +62,9 @@ function show_loading_gif() {
   );
 }
 
+// ------------------------------------------
 function exec_search(url) {
+// ------------------------------------------
   show_loading_gif();
 
   var get_url = "[% config.url_base %]" + url;
@@ -22,9 +72,25 @@ function exec_search(url) {
   $.ajax({
     url: get_url,
     type: "GET",
-    success: function (html) { $('#search-results').html(html); },
+    success: function (data) { 
+      var source   = $("#results-template").html();
+      var template = Handlebars.compile(source);
+      Handlebars.registerHelper('pretty_str', function(str) {
+        str = S(str);
+        return str.replace('_', ' ').capitalize();
+      });
+
+      Handlebars.registerHelper('comma', function(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      });
+
+      var html = template(data);
+      $('#search-results').html(html); 
+      $('#core-tabs a:first').tab('show')
+    },
+
     error: function (xhr, text_status, error_thrown) { 
-      $('#search-results').html(
+      $(target).html(
         '<div class="well text-center">'
         + text_status 
         + " calling &quot;" + url + "&quot;"
@@ -38,8 +104,10 @@ function exec_search(url) {
   });
 }
 
+// ------------------------------------------
 function get_page(qry_string) {
-  var url = "[% c.url_for('/rest/search.html') %]?" + qry_string;
+// ------------------------------------------
+  var url = "[% c.url_for('/rest/search.json') %]?" + qry_string;
   var page_num = $('#page_num').val();
 
   if ( page_num > 0 ) {
@@ -49,6 +117,7 @@ function get_page(qry_string) {
   exec_search(url);
 }
 
+// ------------------------------------------
 $(document).ready( function () {
   var query = getParameterByName('query');
 
@@ -58,20 +127,7 @@ $(document).ready( function () {
     get_page( qry_string );
   }
 });
-
 </script>
-
-<div align="center">
-<form id="query-form" class="form-inline" role="form" method="GET" action="[% c.req.url %]">
-  <div class="form-group">
-    <label class="sr-only" for="query">Search for</label>
-    <input type="text" class="form-control" id="query" name="query">
-  </div>
-  <button type="submit" class="grm-search-btn">Search</button>
-</form>
-</div>
-
-<br/>
 
 <div class="container" id="search-results">
   <div class="well text-center">
