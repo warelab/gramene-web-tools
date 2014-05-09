@@ -6,6 +6,7 @@ author         'Ken Youens-Clark <kclark@cshl.edu>';
 version        '0.01';
 license        'MIT';
 
+requires 'Cache::Memcached'                => '1.3';
 requires 'DBI'                             => '1.630';
 requires 'DBIx::Class'                     => '0.08260';
 requires 'Moose'                           => '2.1005';

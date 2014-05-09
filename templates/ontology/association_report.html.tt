@@ -1,0 +1,43 @@
+[% USE Comma %]
+<h1>Associations ([% associations.size | comma %])</h1>
+Back to <a href="[% config.url_base _ '/ontology/term/' _ term.id %]">[% term.term_accession %]</a>
+
+[% IF associations.size > 0 %]
+    <div class="btn-group pull-right">
+      <button type="button" class="btn btn-default" onclick="location.href='[% config.url_base _ c.req.url _ '&format=tab&download' %]'">Download</button>
+      [% IF species_list.size > 1 %]
+        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Filter <span class="caret"></span></button>
+        <ul class="dropdown-menu" role="menu">
+          <li><a href="javascript:get_assocs('')">--Clear--</a></li>
+          [% FOREACH sp IN species_list.keys.sort %]
+            <li><a href="javascript:get_assocs('[% sp.replace(' ', '_') %]')">[% sp %] ([% species_list.sp %])</a></li>
+          [% END %]
+        </ul>
+      [% END %]
+    </div>
+
+  <table class="table">
+    <tr>
+      <th>Species</th>
+      <th>Type</th>
+      <th>Accession</th>
+      <th>Evidence</th>
+      <th>&nbsp;</th>
+    </tr>
+    [% FOREACH assoc IN associations %]
+      <tr>
+        <td>[% assoc.species OR assoc.common_name OR 'N/A' %]</td>
+        <td>[% assoc.object_type.ucfirst.replace('_', ' ') %]</td>
+        <td>[% assoc.object_accession_id OR 'N/A' %]</td>
+        <td>[% assoc.evidence_code OR 'N/A' %]</td>
+        <td>
+          [% IF assoc.url %]<a target="_blank" href="[% assoc.url %]">View</a>
+          [% ELSE %]&nbsp;
+          [% END %]
+        </td>
+      </tr>
+    [% END %]
+  </table>
+[% ELSE %]
+  <div class="text-center well">None</div>
+[% END %]

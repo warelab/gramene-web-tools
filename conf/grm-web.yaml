@@ -1,4 +1,4 @@
-url_base: "http://tools.gramene.org"
+url_base: "http://apps.gramene.org"
 
 secret: "This land is your land, this land is my land."
 
@@ -6,7 +6,13 @@ log_level: "info"
 
 page_size: "10"
 
+memcached_server: colden.cshl.edu:11211
+
 view:
+  redirect:
+    - ensembl.*-gene
+    - ontology-term
+
   template:
     ensembl.*-gene: "view/ensembl-gene"
     pathway.*-pathway: "view/pathway"
@@ -16,6 +22,8 @@ view:
     ensembl.*-gene: "TT:http://ensembl.gramene.org/[% ensembl_species OR module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% stable_id OR object.display_xref.display_label OR object.stable_id OR object.id %]"
 
     ensembl.*-marker: "TT:http://ensembl.gramene.org/[% module.replace('^ensembl_', '') %]/Marker/Details?db=core;m=[% object.display_marker_synonym.name %]"
+
+    ontology-term: "TT:/ontology/term/[% object.term_accession %]"
 
     pathway_arabidopsis_thaliana-search: "TT:http://pathway.gramene.org/ARA/NEW-IMAGE?type=PATHWAY&amp;object=[% object.pathway_id %]"
 

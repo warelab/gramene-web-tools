@@ -6,14 +6,6 @@ function ucfirst(str) {
 }
   
 // ----------------------------------------------------------------------
-function lesser_of (val, list) {
-  for (var i = 0; i < list.length - 1; i++) {
-    if (val <= list[i]) { return list[i] }
-  }
-  return list[list.length - 1];
-}
-
-// ----------------------------------------------------------------------
 function download_btn (event) {
   event.preventDefault();
 
@@ -123,8 +115,6 @@ $(document).ready( function () {
 </script>
 
 <h1><div id="h1">Cart</div></h1>
-
-[% PROCESS 'search/search-box.tmpl' %]
 
 <form id="form">
 <div id="cart">

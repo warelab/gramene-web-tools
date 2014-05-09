@@ -9,6 +9,8 @@
     <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 
     <script src="/js/bootstrap.js"></script>
+    <script src="/js/handlebars.js"></script>
+    <script src="/js/string.js"></script>
     <script src="/js/jquery.dataTables.js"></script>
     <script src="/js/jquery.cookie.js"></script>
     <script src="/js/jquery.storageapi.js"></script>
@@ -42,6 +44,15 @@
   </script>
 
   <script>
+    // ----------------------------------------------------------------------
+    function lesser_of (val, list) {
+    // ----------------------------------------------------------------------
+      for (var i = 0; i < list.length - 1; i++) {
+        if (val <= list[i]) { return list[i] }
+      }
+      return list[list.length - 1];
+    }
+
     // ------------------------------------------
     function empty_cart () {
     // ------------------------------------------
@@ -97,26 +108,38 @@
       show_cart_count();
     });
   </script>
-  </head>
+</head>
 
-  <body>
-    <div class="container">
-      <div class="header">
-        <a href="http://www.gramene.org"><img src="/img/gramene_logo.png"></a>
-        [% IF title %]<span class="pull-right"><h1>[% title %]</h1></span>[% END %]
-        <span class="pull-right">
-          <a href="/cart/view"><img src="/img/cart.png"><span id="cart_count" class="badge"></span></a>
-          <a href="javascript:empty_cart();"><span class="glyphicon glyphicon-remove-sign"></span></a>
-        </div>
-        <span class="pull-right">
-          <a href="/feedback">Feedback</a>
-        </span>
-      </div>
-    </div> <!-- /container -->
-
-    <div class="container">
-      [% content %]
+<body>
+<nav class="navbar navbar-default" role="navigation">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#grm-nav">
+      </button>
+      <a class="navbar-brand" href="http://www.gramene.org"><img src="/img/gramene_logo_small.png"></a>
     </div>
-  </body>
-</html>
 
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="grm-nav">
+      <ul class="nav navbar-nav">
+        <li><a href="/search">Search</a></li>
+        <li><a href="/ontology">Ontologies</a></li>
+        <li><a href="/cart/view">Cart</a></li>
+        <li><a href="/feedback">Feedback</a></li>
+      </ul>
+
+      <form class="navbar-form navbar-right" role="search" action="/search" method="GET">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="Search" id="query" name="query">
+        </div>
+        <button type="submit" class="btn grm-search-btn">Search</button>
+      </form>
+    </div><!-- /.navbar-collapse -->
+  </div><!-- /.container-fluid -->
+</nav>
+
+<div class="container">
+  [% content %]
+</div>
+</body>
+</html>

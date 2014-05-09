@@ -4,22 +4,18 @@ use strict;
 
 use Mojo::Base 'Mojolicious::Controller';
 
-use Data::Dumper;
+use Data::Dump 'dump';
 use Data::Pageset;
-use JSON qw( encode_json decode_json );
-use LWP::UserAgent;
-use List::Util qw( max sum );
-use List::MoreUtils qw( uniq );
-use Mail::Sendmail qw( sendmail );
-use Mojo::Util qw( squish trim unquote url_unescape );
-
-use lib '/usr/local/gramene-40/gramene-lib/lib';
 use Grm::Config;
-use Grm::Search;
 use Grm::DB;
-use Grm::Utils qw( 
-    camel_case commify iterative_search_values timer_calc pager 
-);
+use Grm::Search;
+use Grm::Utils qw(camel_case commify iterative_search_values timer_calc pager);
+use JSON qw(encode_json decode_json);
+use LWP::UserAgent;
+use List::MoreUtils qw(uniq);
+use List::Util qw(max sum);
+use Mail::Sendmail qw(sendmail);
+use Mojo::Util qw(squish trim unquote url_unescape);
 
 # ----------------------------------------------------------------------
 sub info {
@@ -65,12 +61,13 @@ sub search {
         # ensure not multi-valued
         $req->param( query => $query ); 
 
-        $results      = $search->search(
-            query     => $query,
-            params    => $req->params->to_hash,
-            fl        => $req->param('fl')        // '',
-            no_hl     => $req->param('no_hl')     // '',
-            no_facet  => $req->param('no_facet')  // '',
+        $results   = $search->search(
+            query  => $query,
+            params => $req->params->to_hash,
+            core   => $req->param('core')      // '',
+            fl     => $req->param('fl')        // '',
+            hl     => defined $req->param('no_hl') ? $req->param('no_hl') : 1,
+            no_facet  => $req->param('no_facet')  //  1,
             page_size => $req->param('page_size') 
                       || $web_conf->{'page_size'} 
                       || 10,
@@ -90,11 +87,77 @@ sub search {
             $search_db->schema->resultset('QueryLog')->create({
                 ip        => $session->{'ip'},
                 user_id   => $session->{'user_id'},
-                num_found => $results->{'response'}{'numFound'} || 0,
+                num_found => $results->{'num_found'} || 0,
                 time      => $results->{'time'},
                 params    => $orig_params,
                 query     => $query,
             });
+        }
+    }
+
+    #
+    # Here we clean up the Solr results just a touch
+    #
+    if (my $num_found = $results->{'num_found'}) {
+        for my $core ( @{$results->{'cores'} || []} ) {
+            next if $core->{'response'}{'error'};
+
+            for my $doc ( @{ $core->{'response'}{'docs'} || [] } ) {
+                my $id = $doc->{'id'};
+                if (my $hl = $core->{'highlighting'}{ $id }{'text'}) {
+                    $doc->{'content'} = $hl;
+                }
+
+                $doc->{'content'} ||= $doc->{'description'};
+            }
+
+            if ( $num_found > $page_size ) {
+                my $pager = Data::Pageset->new({
+                    total_entries    => $num_found,
+                    current_page     => $page_num,
+                    entries_per_page => $page_size,
+                });
+
+                $core->{'pager'} = {
+                    total_entries => $num_found,
+                    current_page  => $page_num,
+                    pages         => $pager->pages_in_set,
+                };
+            }
+
+            my %facets;
+            while (my ($facet_name, $facets) = 
+                each %{ $core->{'facet_counts'}{'facet_fields'} || {} }
+            ) {
+                next if scalar @$facets == 2;
+                while ( my ($key, $count) = splice(@$facets, 0, 2) ) {
+                    if ($facet_name eq 'ontology') {
+                        ( my $prefix = $key ) =~ s/:.*//;
+                        if ( my $term_name = $odb->db->dbh->selectrow_array(
+                                'select name from term where term_accession=?',
+                                {},
+                                $key
+                            )
+                        ) {
+                            $key = sprintf '%s (%s)', $key, $term_name;
+                        }
+
+                        push @{ $facets{'ontology'}{$prefix} }, { 
+                            name  => $key, 
+                            count => $count 
+                        };
+                    }
+                    else {
+                        push @{ $facets{ $facet_name } }, {
+                            name  => $key,
+                            count => $count
+                        };
+                    }
+                }
+            }
+
+            $core->{'facet_counts'} = \%facets;
+            delete $core->{'highlighting'}
         }
     }
 
@@ -104,75 +167,6 @@ sub search {
         },
 
         html => sub { 
-            my $num_found = $results->{'num_found'};
-
-            if ( $num_found > 0 ) {
-                my $conf      = Grm::Config->new->get('search');
-                my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
-
-                while ( 
-                    my ($core, $response) = each %{ $results->{'core'} || {} }
-                ) {
-                    for my $doc ( @{ $response->{'response'}{'docs'} || [] } ) {
-                        my $id = $doc->{'id'};
-                        if ( my $hl = 
-                            $response->{'highlighting'}{ $id }{'content'} 
-                        ) {
-                            $doc->{'content'} = $hl;
-                        }
-
-                        my ( $module, $table, $pk ) = split /\//, $id;
-                        $doc->{'url'} = make_web_link(
-                            link_conf => \%view_link,
-                            module    => $module,
-                            table     => $table,
-                            id        => $pk,
-                        );
-                    }
-
-                    if ( $num_found > $page_size ) {
-                        $response->{'pager'} = 
-                            Data::Pageset->new({
-                                total_entries    => $num_found,
-                                current_page     => $page_num,
-                                entries_per_page => $page_size,
-                            });
-                    }
-
-                    my %facets = %{ 
-                        $response->{'facet_counts'}{'facet_fields'} || {} 
-                    };
-
-                    for my $facet_name (  keys %facets ) {
-                        my %facet = @{ $facets{ $facet_name } };
-
-                        if ( scalar keys %facet == 1 ) {
-                            delete $facets{ $facet_name };
-                        }
-                    }
-
-                    my @ontologies = @{ $facets{'ontology'} || [] };
-                    my %ont_facets;
-                    while ( my ($term, $count) = splice(@ontologies, 0, 2) ) {
-                        ( my $prefix = $term ) =~ s/:.*//;
-                        if ( my $term_name = $odb->db->dbh->selectrow_array(
-                                'select name from term where term_accession=?',
-                                {},
-                                $term
-                            )
-                        ) {
-                            $term = sprintf '%s (%s)', $term, $term_name;
-                        }
-
-                        push @{ $ont_facets{ $prefix } }, ( $term, $count );
-                    }
-
-                    $facets{'ontology'} = \%ont_facets;
-
-                    $response->{'facet_counts'}{'facet_fields'} = \%facets;
-                }
-            }
-
             $self->render( 
                 session => $session,
                 config  => $web_conf,
@@ -190,9 +184,9 @@ sub search {
 sub search_log {
     my $self      = shift;
     my $req       = $self->req;
-    my $order_by  = $req->param('order_by')    || 'date';
-    my $page_num  = $req->param('page_num')    || '';
-    my $page_size = $self->config('page_size') || 10;
+    my $order_by  = $req->param('order_by')      || 'date';
+    my $page_num  = $req->param('page_num')      || '';
+    my $page_size = $self->config->{'page_size'} || 10;
     my $db        = Grm::DB->new('search');
     my %args      = ( order_by => { -asc => $order_by } );
 
@@ -258,19 +252,40 @@ sub search_log {
 # ----------------------------------------------------------------------
 sub ontology_search {
     my $self         = shift;
-    my $query        = $self->param('query')        || '';
+    my $query        = $self->param('oquery')       || '';
     my $term_type_id = $self->param('term_type_id') || '';
+    my $num_found    = 0;
+    my $show_pager   = 0;
 
-    my @terms;
+    my ($pager, @terms);
     if ( $query ) {
         my @cols     = qw( term_id name term_accession );
         my $odb      = Grm::Ontology->new;
-        my $schema   = $odb->db->schema;
+
         my @term_ids = $odb->search( 
             query        => $query,
             term_type_id => $term_type_id,
         );
 
+        $num_found    = scalar @term_ids;
+#        my $web_conf  = $self->config;
+#        my $page_size = $self->param('page_size') 
+#                     || $web_conf->{'page_size'} 
+#                     || 10;
+#
+#        my $current_page = $self->param('page_num') || 1;
+#        $pager = Data::Pageset->new({
+#            total_entries    => $num_found,
+#            current_page     => $current_page,
+#            entries_per_page => $page_size,
+#        });
+#
+#        if ( $num_found > $page_size ) {
+#            @term_ids = splice( @term_ids, $pager->first - 1, $page_size );
+#            $show_pager = 1;
+#        }
+
+        my $schema = $odb->db->schema;
         for my $term_id ( @term_ids ) {
             my $Term = $schema->resultset('Term')->find( $term_id );
             push @terms, { map { $_, $Term->$_() } @cols };
@@ -286,10 +301,13 @@ sub ontology_search {
 
         html => sub {
             $self->render( 
+                num_found    => $num_found,
                 terms        => \@terms,
                 query        => $query,
                 term_type_id => $term_type_id,
-            )
+                pager        => $pager,
+                show_pager   => $show_pager,
+            );
         },
 
         txt => sub { 
@@ -313,138 +331,6 @@ sub ontology_search {
             }
         },
     );
-}
-
-# ----------------------------------------------------------------------
-sub ontology_associations {
-    my $self     = shift;
-    my $term_id  = $self->param('term_id')        || '';
-    my $term_acc = $self->param('term_accession') || '';
-    my $odb      = Grm::Ontology->new;
-
-    if ( !$term_id && $term_acc ) {
-        my @term_ids = $odb->search( $term_acc );
-        $term_id = shift @term_ids;
-    }
-
-    my @associations = $term_id 
-        ? $odb->get_term_associations( term_id => $term_id )
-        : ();
-
-    my $web_conf  = $self->config;
-    my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
-
-    for my $assoc ( @associations ) {
-        if ( $assoc->{'object_type'} =~ /^GR_(ensembl_(\w+))_(gene)$/ ) {
-            my $module          = $1;
-            my $ensembl_species = $2;
-            my $table           = $3;
-
-            $assoc->{'url'}     = make_web_link(
-                link_conf       => \%view_link,
-                module          => $module,
-                table           => $table,
-                ensembl_species => ucfirst $ensembl_species,
-                stable_id       => $assoc->{'object_accession_id'},
-            );
-        }
-    }
-
-    $self->layout(undef);
-
-    $self->respond_to(
-        json => sub { 
-            $self->render( json => { associations => \@associations } ) 
-        },
-
-        html => sub { 
-            my @species = sort { $a cmp $b } 
-                uniq( map { $_->{'object_species'} } @associations ),
-            ;
-
-            if ( my $species = lc $self->param('species') ) {
-                $species =~ s/_/ /g;
-                @associations = 
-                    grep { lc $_->{'object_species'} eq $species }
-                    @associations
-                ;
-            }
-
-            $self->render( 
-                associations => \@associations,
-                species      => \@species,
-            );
-        },
-
-        txt  => sub { $self->render( text => Dumper(\@associations) ) },
-
-        tab  => sub { 
-            if ( @associations > 0 ) {
-                my $tab  = "\t";
-                my @cols = sort keys %{ $associations[0] };
-                my @data;
-                push @data, join( $tab, @cols );
-                for my $assoc ( @associations ) {
-                    push @data, join( $tab, map { $assoc->{ $_ } } @cols );
-                }
-
-                $self->render( text => join( "\n", @data ) );
-            }
-            else {
-                $self->render( text => 'None' );
-            }
-        },
-    );
-}
-        
-# ----------------------------------------------------------------------
-sub make_web_link {
-    my %args      = @_;
-    my $link_conf = $args{'link_conf'} || {};
-    my $module    = $args{'module'}    || '';
-    my $table     = $args{'table'}     || '';
-    my $id        = $args{'id'}        || '';
-    my $doc       = $args{'doc'}       || {};
-    my $test      = join '-', $module, $table;
-    my $link_tmpl = '';
-
-    for my $key ( sort keys %$link_conf ) {
-        if ( $test eq $key || $test =~ /$key/ ) {
-            $link_tmpl = $link_conf->{ $key };
-            last;
-        }
-    }
-
-    my $url = '';
-    if ( $link_tmpl =~ /^TT:(.+)/ ) {
-        my $tt_tmpl = $1;
-        my $obj     = {};
-
-        if ( $id ) {
-            my $db      = Grm::DB->new( $module );
-            my $schema  = $db->schema;
-            my $rs_name = camel_case( $table );
-            $obj        = $schema->resultset( $rs_name )->find( $id );
-        }
-
-        my $tt = Template->new;
-
-        $tt->process( 
-            \$tt_tmpl, 
-            { 
-                object => $obj,
-                %args
-            }, 
-            \$url 
-        ) or $url = $tt->error;
-    }
-    else {
-        if ( $module && $table && $id ) {
-            $url = "/view/$module/$table/$id";
-        }
-    }
-
-    return $url;
 }
 
 # ----------------------------------------------------------------------
