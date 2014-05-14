@@ -13,7 +13,7 @@ view:
     ontology-term: "view/ontology-term"
 
   link:
-    ensembl.*-gene: "TT:http://ensembl.gramene.org/[% ensembl_species OR module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% stable_id OR object.display_xref.display_label OR object.stable_id OR object.id %]"
+    ensembl.*-gene: "TT:http://ensembl.gramene.org/[% ensembl_species OR module.replace('^ensembl_', '') %]/Gene/Summary?db=core;g=[% id OR stable_id OR object.display_xref.display_label OR object.stable_id OR object.id %]"
 
     ensembl.*-marker: "TT:http://ensembl.gramene.org/[% module.replace('^ensembl_', '') %]/Marker/Details?db=core;m=[% object.display_marker_synonym.name %]"
 

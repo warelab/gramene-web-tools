@@ -580,7 +580,7 @@ sub make_web_link {
         my $tt_tmpl = $1;
         my $obj     = {};
 
-        if ( $id ) {
+        if ( $id && $id =~ /^\d+$/ ) {
             my $db      = Grm::DB->new( $module );
             my $schema  = $db->schema;
             my $rs_name = camel_case( $table );
