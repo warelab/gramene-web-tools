@@ -75,75 +75,13 @@ sub term {
 
 # ----------------------------------------------------------------------
 sub association_report {
-    my $self         = shift;
-    my $term_id      = $self->param('term_id') or die 'No term id';
-    my $odb          = Grm::Ontology->new;
-    my @associations = $odb->get_term_associations(
-        term_id      => $term_id, 
-        species_id   => $self->param('species_id') || 0,
-    );
+    my $self    = shift;
+    my $term_id = $self->param('term_id') or die 'No term id';
+    my $odb     = Grm::DB->new('ontology');
+    my $Term    = $odb->schema->resultset('Term')->find($term_id);
 
     $self->layout('default');
-
-    $self->respond_to(
-        json => sub {
-            $self->render(
-                json => { term_id => $term_id, associations => \@associations }
-            );
-        },
-
-        html => sub { 
-            my (%count_by_species, %assoc_by_type);
-
-            if (scalar @associations > 0) {
-                my $web_conf  = $self->config;
-                my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
-
-                for my $assoc ( @associations ) {
-                    if ( $assoc->{'object_type'} eq 'gene' ) {
-                        ( my $species = lc $assoc->{'species'} ) =~ s/ /_/g;
-
-#                        $assoc->{'url'}     = $self->make_web_link(
-#                            link_conf       => \%view_link,
-#                            module          => 'ensembl_' . $species,
-#                            table           => 'gene',
-#                            ensembl_species => ucfirst $species,
-#                            stable_id       => $assoc->{'object_accession_id'},
-#                        );
-                    }
-
-                    push @{ $assoc_by_type{$assoc->{'species'}} }, $assoc;
-                    $count_by_species{ $assoc->{'species'} }++;
-                }
-            }
-
-            $self->render( 
-                associations => \@associations,
-                species_list => \%count_by_species,
-                term         => 
-                    $odb->db->schema->resultset('Term')->find($term_id),
-            );
-        },
-
-        txt  => sub { $self->render( text => Dumper(\@associations) ) },
-
-        tab  => sub { 
-            if ( @associations > 0 ) {
-                my $tab  = "\t";
-                my @cols = sort keys %{ $associations[0] };
-                my @data;
-                push @data, join( $tab, @cols );
-                for my $assoc ( @associations ) {
-                    push @data, join( $tab, map { $assoc->{ $_ } } @cols );
-                }
-
-                $self->render( text => join( "\n", @data ) );
-            }
-            else {
-                $self->render( text => 'None' );
-            }
-        },
-    );
+    $self->render( term => $Term );
 }
         
 # ----------------------------------------------------------------------

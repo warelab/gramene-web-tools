@@ -1,38 +1,6 @@
 [% USE Comma %]
-<script>
-function get_assocs (species) {
-  var url = "[% config.url_base %]" 
-    + '/rest/ontology_associations/' + [% term.id %]
-  ;
-
-  //var species = $('#species-filter').val();
-  if ( species != undefined ) {
-    url = url + '?species=' + species;
-  }
-
-  $('#associations').html('<div class="text-center"><img src="/img/loading.gif"><br/>Fetching associations... </div>');
-
-  console.log(url);
-  $.ajax({
-    url: url,
-    type: "GET",
-    success: function (html) { $('#associations').html(html); },
-    error: function (xhr, text_status, error_thrown) { 
-      $('#associations').html(
-        '<div class="well text-center">'
-        + text_status 
-        + " calling &quot;" + url + "&quot;"
-        + " (" 
-        + error_thrown 
-        + ")<br/>"
-        + xhr.responseText
-        + "</div>"
-      );
-    },
-  });
-}
-
 [% IF assoc_count > 0 %]
+  <script>
   [% SET aaData = [] %]
   [% FOREACH assoc IN associations %]
     [% 
@@ -55,13 +23,13 @@ function get_assocs (species) {
       'aoColumns': [
         { 'sTitle': 'Species' },
         { 'sTitle': 'Object Type' },
-        { 'sTitle': 'Count' },
+        { 'sTitle': 'Count', 'sClass': 'right' },
         { 'sTitle': 'View' }
       ]
     });
   });
+  </script>
 [% END %]
-</script>
 
 <div class="container">
   <h1>Ontology Term &quot;[% term.term_accession %]&quot;</h1>

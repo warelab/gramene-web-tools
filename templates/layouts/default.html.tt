@@ -16,6 +16,8 @@
     <script src="/js/jquery.dataTables.js"></script>
     <script src="/js/handlebars.js"></script>
     <script src="/js/underscore.js"></script>
+    <script src="/js/string.js"></script>
+    <script src="/js/gramene.js"></script>
 
     <link href="/css/jquery.dataTables.css" rel="stylesheet" />
     <link href="/css/bootstrap.css" rel="stylesheet" />

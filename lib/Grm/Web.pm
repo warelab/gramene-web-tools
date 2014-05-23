@@ -73,6 +73,10 @@ sub startup {
 
     $r->get('/rest/ontology_search')->to('rest#ontology_search');
 
+    $r->get('/rest/ontology_associations/:term_id')->to(
+        'rest#ontology_associations'
+    );
+
     $r->get('/ontology/association_report/:term_id')->to(
         'ontology#association_report'
     );

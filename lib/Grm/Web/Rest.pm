@@ -35,7 +35,7 @@ sub info {
         },
 
         txt => sub { 
-            $self->render( text => Dumper({ actions => \@actions }) );
+            $self->render( text => dump({ actions => \@actions }) );
         },
     );
 }
@@ -185,7 +185,7 @@ sub search {
         },
         
         txt => sub { 
-            $self->render( text => Dumper( $results ) );
+            $self->render( text => dump( $results ) );
         },
     );
 }
@@ -321,7 +321,7 @@ sub ontology_search {
         },
 
         txt => sub { 
-            $self->render( text => Dumper(\@terms) ),
+            $self->render( text => dump(\@terms) ),
         },
 
         tab  => sub { 
@@ -332,6 +332,59 @@ sub ontology_search {
                 push @data, join( $tab, @cols );
                 for my $term ( @terms ) {
                     push @data, join( $tab, map { $term->{ $_ } } @cols );
+                }
+
+                $self->render( text => join( "\n", @data ) );
+            }
+            else {
+                $self->render( text => 'None' );
+            }
+        },
+    );
+}
+
+# ----------------------------------------------------------------------
+sub ontology_associations {
+    my $self         = shift;
+    my $term_id      = $self->param('term_id') || '';
+    my $odb          = Grm::Ontology->new;
+    my @associations = $odb->get_term_associations(
+        term_id      => $term_id, 
+        species_id   => $self->param('species_id')  ||  0,
+        species      => $self->param('species')     || '',
+        object_type  => $self->param('object_type') || '',
+    );
+
+    my $species_count = $odb->get_term_association_counts($term_id);
+#    my %species_count;
+#    for my $assoc (@associations) {
+#        if (my $sp = $assoc->{'species'}) {
+#            $species_count{$sp}{'species_id'} = $sp->{'species_id'};
+#            $species_count{$sp}{'count'}++;
+#        }
+#    }
+
+    $self->respond_to(
+        json => sub {
+            $self->render(
+                json => { 
+                    term_id       => $term_id, 
+                    associations  => \@associations,
+                    species_count => $species_count,
+                }
+            );
+        },
+
+        txt  => sub { $self->render( text => dump(\@associations) ) },
+
+        tab  => sub { 
+            if ( @associations > 0 ) {
+                my $tab  = "\t";
+                my @cols = sort keys %{ $associations[0] };
+                my @data;
+                push @data, join( $tab, @cols );
+                for my $assoc ( @associations ) {
+                    push @data, join( $tab, map { $assoc->{ $_ } } @cols );
                 }
 
                 $self->render( text => join( "\n", @data ) );
@@ -372,7 +425,7 @@ sub view_cart {
         },
 
         txt => sub { 
-            $self->render( text => Dumper({ items => \@items }) );
+            $self->render( text => dump({ items => \@items }) );
         },
     );
 }

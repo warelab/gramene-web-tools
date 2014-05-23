@@ -1,45 +1,90 @@
-[% USE Comma %]
-<h1>Associations ([% associations.size | comma %])</h1>
-Back to <a href="[% config.url_base _ '/ontology/term/' _ term.id %]">[% term.term_accession %]</a>
+<script>
+var last_url = '';
+function download_associations() {
+  if (last_url) {
+    var url = S(last_url).replaceAll('.json', '.tab') + '&download';
+    location.href = url;
+  }
+}
 
-[% IF associations.size > 0 %]
-    <div class="btn-group pull-right">
-      <button type="button" class="btn btn-default" onclick="location.href='[% config.url_base _ c.req.url _ '&format=tab&download' %]'">Download</button>
-      [% IF species_list.size > 1 %]
-        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Filter <span class="caret"></span></button>
-        <ul class="dropdown-menu" role="menu">
-          <li><a href="javascript:get_assocs('')">--Clear--</a></li>
-          [% FOREACH sp IN species_list.keys.sort %]
-            <li><a href="javascript:get_assocs('[% sp.replace(' ', '_') %]')">[% sp %] ([% species_list.sp %])</a></li>
-          [% END %]
-        </ul>
-      [% END %]
-    </div>
+function load_associations(species_id) {
+  var url = '[% config.url_base %]/rest/ontology_associations/[% term.id %].json?';
+  var object_type = getParameterByName('object_type');
 
-  <table class="table">
-    <tr>
-      <th>Species</th>
-      <th>Object Symbol</th>
-      <th>Type</th>
-      <th>Accession</th>
-      <th>Evidence</th>
-      <th>&nbsp;</th>
-    </tr>
-    [% FOREACH assoc IN associations %]
-      <tr>
-        <td>[% assoc.species OR assoc.common_name OR 'N/A' %]</td>
-        <td>[% assoc.object_symbol OR 'N/A' %]</td>
-        <td>[% assoc.object_type.ucfirst.replace('_', ' ') %]</td>
-        <td>[% assoc.object_accession_id OR 'N/A' %]</td>
-        <td>[% assoc.evidence_code OR 'N/A' %]</td>
-        <td>
-          [% IF assoc.url %]<a target="_blank" href="[% assoc.url %]">View</a>
-          [% ELSE %]&nbsp;
-          [% END %]
-        </td>
-      </tr>
-    [% END %]
-  </table>
-[% ELSE %]
-  <div class="text-center well">None</div>
-[% END %]
+  if (object_type != undefined) {
+    url += '&object_type=' + object_type;
+  } 
+
+  if (species_id == undefined) {
+    species_id = getParameterByName('species_id');
+  }
+
+  if (species_id != undefined) {
+    url += '&species_id=' + species_id;
+  }
+
+  last_url = url;
+  $('#loading').show();
+  $.get(
+    url,
+    function(data) {
+      if (_.size(data.associations) > 0) {
+        $('#associations').DataTable({
+          'destroy': true,
+          'iDisplayLength': lesser_of(_.size(data.associations), [10, 25, 50, 100]),
+          'bProcessing': true,
+          'data': data.associations,
+          'columns': [
+            { 'data': 'species', 'title': 'Species' },
+            { 'data': 'db_object_symbol', 'title': 'DB Object Symbol' },
+            { 'data': 'object_type', 'title': 'Object Type' },
+            { 'data': 'evidence_code', 'title': 'Evidence' },
+            { 
+              'data': 'url', 
+              'title': 'View',
+              'render': function ( data, type, full, meta ) {
+                return '<a href="'+data+'">View</a>';
+              }
+            }
+          ]
+        });
+        $('#loading').hide();
+
+        var source   = $("#results-template").html();
+        var template = Handlebars.compile(source);
+        var html = template(data);
+        $('#download').html(html); 
+      }
+      else {
+        $('#loading').html('No associations');
+      }
+    }
+  );
+}
+</script>
+<script id="results-template" type="text/x-handlebars-template">
+
+<div class="btn-group pull-right">
+  <button type="button" class="btn btn-default" onclick="download_associations()">Download</button>
+  <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Filter <span class="caret"></span></button>
+  <ul class="dropdown-menu" role="menu">
+    <li><a href="javascript:load_associations('')">--Clear--</a></li>
+    {{#each species_count}}
+    <li><a href="javascript:load_associations('{{species_id}}')">{{species}} ({{count}})</a></li>
+    {{/each}}
+  <ul>
+</div>
+</script>
+
+<h1>Associations for <a href="[% config.url_base _ '/ontology/term/' _ term.id %]">[% term.term_accession %] ([% term.name %])</a></h1>
+
+<script>
+$(document).ready(function() {
+  load_associations();
+});
+</script>
+
+<div id="loading" class="text-center">Fetching...<br/><img src="/img/loading.gif"></div>
+
+<div id="download"></div>
+<table id="associations"></table>
