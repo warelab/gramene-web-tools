@@ -1,53 +1,81 @@
 [%- USE Comma -%]
 
 <script id="results-template" type="text/x-handlebars-template">
-  <div class="text-center">Found {{num_found}} in {{time}} seconds.</div>
-  <ul class="nav nav-tabs" id="core-tabs">
-    {{#each cores}}
-      <li>
-        <a href="#core-{{core_name}}" data-toggle="tab">{{pretty_str core_name}} ({{comma response.numFound}})</a>
-      </li>
+  <div class="col-md-4">
+    <form id="facets-form">
+    {{#each params}}
+      <input type="hidden" name="{{this.name}}" value="{{{this.val}}}">
     {{/each}}
-  </ul>
-
-  <div class="tab-content">
-    {{#each cores}}
-    <div class="tab-pane" id="core-{{core_name}}">
-      <table>
-        {{#each response.docs}}
-          <tr>
-            <td valign="top">
-              <input type="checkbox" name="obj_id" value="{{id}}" onchange='update_cart({ id: "{{id}}", add: $(this).is(":checked"), update_count: true})'>
-            </td>
-            <td>
-              <p>
-                <a target="_blank" href="/view/{{id}}">{{title}}</a><br/>
-                {{{content}}}
-              </p>
-            </td>
-        {{/each}}
-      </table>
-
-      {{#if pager}}
-        <div class="text-center">
-          <ul class="pagination">
-            {{#each pager.pages}}
-              <li {{#if this ><a href="/foo">{{this}}</a></li>
-            {{/each}}
-          </ul>
+    <div id="sidebar" class="panel-group">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <div class="panel-title">Results</div>
         </div>
-      {{/if}}
+        <div class="panel-body">
+          {{#if fq}}
+            <ul class="list-group">
+              {{#each fq}}
+                <li class="list-group-item">
+                  <a href="#" onclick="javascript:refine(event, {'fq_remove': '{{this.name}}~{{{this.val}}}'})">
+                  {{pretty_str this.name}} &quot;{{{pretty_str this.val}}}&quot;&nbsp;<span class="glyphicon glyphicon-remove-circle pull-right"></span>
+                  </a><br/>
+                </li>
+              {{/each}}
+            </ul>
+          {{/if}}
 
+          <div class="text-center">
+          Showing {{comma start}} to {{comma end}} 
+          of {{comma response.numFound}} records.<br/> 
+          <small>Search took {{time}} seconds.</small>
+          </div>
+        </div>
+      </div>
+
+      {{#each facet_counts}}
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <div class="panel-title">
+              <a data-toggle="collapse" data-parent="#sidebar" href="#collapse-{{@key}}">{{@key}}</a>
+            </div>
+          </div>
+          <div id="collapse-{{@key}}" class="panel-body collapse">
+            {{#each this}}
+              <div class="panel-body">
+                <input type="checkbox" name="fq" value="{{name}}~{{{value}}}" onclick="javascript:refine(event)">&nbsp;{{{display}}}
+                <span class="badge pull-right">{{count}}</span>
+              </div>
+            {{/each}}
+          </div>
+        </div>
+      {{/each}}
     </div>
-    {{/each}}
+    </form>
   </div>
 
+  <div class="col-md-8" id="docs">
+    {{#each response.docs}}
+      <p>
+      <a target="_blank" href="/view/{{id}}">{{title}}</a><br/>
+      {{{content}}}
+      </p>
+    {{/each}}
+
+    {{#if pager}}
+      <div class="text-center">
+        <ul class="pagination">
+          {{#each pager.pages}}
+          <li{{# if current}} class="active"{{/if}}><a href="#" onclick="javascript:refine(event, {'page_num': '{{page}}'}); return false;">{{page}}</a></li>
+          {{/each}}
+        </ul>
+      </div>
+    {{/if}}
+  </div>
 </script>
 
 <script>
 // ------------------------------------------
 function getParameterByName(name) {
-// ------------------------------------------
   var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
   return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
 }
@@ -63,34 +91,79 @@ function show_loading_gif() {
 }
 
 // ------------------------------------------
-function exec_search(url) {
+function capitalize(s) {
+  return s[0].toUpperCase() + s.slice(1);
+}
+
 // ------------------------------------------
+function exec_search(qry_string) {
   show_loading_gif();
 
-  var get_url = "[% config.url_base %]" + url;
+  qry_string = qry_string;
+  var url = '[% config.url_base %]/rest/search.json?' + qry_string;
 
   $.ajax({
-    url: get_url,
+    url: url,
     type: "GET",
     success: function (data) { 
       var source   = $("#results-template").html();
       var template = Handlebars.compile(source);
       Handlebars.registerHelper('pretty_str', function(str) {
-        str = S(str);
-        return str.replace('_', ' ').capitalize();
+        return capitalize(str.replace(/_/g, ' '));
       });
 
       Handlebars.registerHelper('comma', function(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        if (num) { 
+          return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") 
+        } else {
+          return '';
+        }
       });
+
+      var args = qry_string.split('&');
+      var params = [];
+      for (var i=0; i < _.size(args); i++) {
+        var arg = args[i];
+        var a = arg.split('='); 
+        var o = {}; 
+        var k = a[0]; 
+        var v = a[1]; 
+        if (k && v && k != 'page_num') {
+          o['name'] = k; 
+          o['val'] = decodeURIComponent(v); 
+          params.push(o);
+        }
+      }
+
+      var fq = [];
+      for (var i=0; i < _.size(params); i++) {
+        param = params[i];
+        if (param['name'] == 'fq') {
+          var a = param['val'].split('~');
+          if (_.size(a)) {
+            var o = {};
+            var k = a[0];
+            var v = a[1];
+            if (k && v) {
+              o['name'] = k; 
+              o['val'] = v;
+              fq.push(o);
+            }
+          }
+        }
+      }
+
+      data['params'] = params;
+      data['fq'] = fq;
+      data['start'] = data.response.start || 1;
+      data['end'] = parseInt(data.response.start) + parseInt(_.size(data.response.docs));
 
       var html = template(data);
       $('#search-results').html(html); 
-      $('#core-tabs a:first').tab('show')
     },
 
     error: function (xhr, text_status, error_thrown) { 
-      $(target).html(
+      $('#search-results').html(
         '<div class="well text-center">'
         + text_status 
         + " calling &quot;" + url + "&quot;"
@@ -105,16 +178,37 @@ function exec_search(url) {
 }
 
 // ------------------------------------------
-function get_page(qry_string) {
+function refine (event, options) {
 // ------------------------------------------
-  var url = "[% c.url_for('/rest/search.json') %]?" + qry_string;
-  var page_num = $('#page_num').val();
+  event.preventDefault();
 
-  if ( page_num > 0 ) {
-    url += '&page_num=' + page_num;
+  if ( options === undefined ) {
+    options = {};
   }
 
-  exec_search(url);
+  var qry_string = $('#facets-form').serialize();
+  var fq_remove  = options['fq_remove'];
+
+  if (fq_remove !== undefined) {
+    qry_string = 'query=' + $('#query').val();
+
+    var fqs = $('input[name=fq][type=hidden]');
+    for (var i = 0, len = fqs.length; i < len; i++) {
+      var fq = fqs[i];
+      var val = fq.value;
+
+      if (val != fq_remove) {
+        qry_string += '&fq=' + val;
+      }
+    }
+  }
+
+  var page_num = options.page_num;
+  if (page_num) {
+    qry_string += '&page_num=' + page_num;
+  }
+
+  window.location.href = "[% config.url_base %]/search?" + qry_string;
 }
 
 // ------------------------------------------
@@ -122,11 +216,12 @@ $(document).ready( function () {
   var query = getParameterByName('query');
 
   if (query != undefined) {
-    $('#query').val(query);
+    $('#query').val(escape(query));
     var qry_string = document.URL.split('?')[1];
-    get_page( qry_string );
+    exec_search(qry_string);
   }
 });
+
 </script>
 
 <div class="container" id="search-results">

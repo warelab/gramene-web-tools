@@ -96,20 +96,20 @@ sub association_report {
             my (%count_by_species, %assoc_by_type);
 
             if (scalar @associations > 0) {
-                my $web_conf   = $self->config;
-                my %view_link  = %{ $web_conf->{'view'}{'link'} || {} };
+                my $web_conf  = $self->config;
+                my %view_link = %{ $web_conf->{'view'}{'link'} || {} };
 
                 for my $assoc ( @associations ) {
                     if ( $assoc->{'object_type'} eq 'gene' ) {
                         ( my $species = lc $assoc->{'species'} ) =~ s/ /_/g;
 
-                        $assoc->{'url'}     = $self->make_web_link(
-                            link_conf       => \%view_link,
-                            module          => 'ensembl_' . $species,
-                            table           => 'gene',
-                            ensembl_species => ucfirst $species,
-                            stable_id       => $assoc->{'object_accession_id'},
-                        );
+#                        $assoc->{'url'}     = $self->make_web_link(
+#                            link_conf       => \%view_link,
+#                            module          => 'ensembl_' . $species,
+#                            table           => 'gene',
+#                            ensembl_species => ucfirst $species,
+#                            stable_id       => $assoc->{'object_accession_id'},
+#                        );
                     }
 
                     push @{ $assoc_by_type{$assoc->{'species'}} }, $assoc;

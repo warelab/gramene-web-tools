@@ -19,6 +19,7 @@ Back to <a href="[% config.url_base _ '/ontology/term/' _ term.id %]">[% term.te
   <table class="table">
     <tr>
       <th>Species</th>
+      <th>Object Symbol</th>
       <th>Type</th>
       <th>Accession</th>
       <th>Evidence</th>
@@ -27,6 +28,7 @@ Back to <a href="[% config.url_base _ '/ontology/term/' _ term.id %]">[% term.te
     [% FOREACH assoc IN associations %]
       <tr>
         <td>[% assoc.species OR assoc.common_name OR 'N/A' %]</td>
+        <td>[% assoc.object_symbol OR 'N/A' %]</td>
         <td>[% assoc.object_type.ucfirst.replace('_', ' ') %]</td>
         <td>[% assoc.object_accession_id OR 'N/A' %]</td>
         <td>[% assoc.evidence_code OR 'N/A' %]</td>

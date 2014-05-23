@@ -9,7 +9,7 @@ use Data::Pageset;
 use Grm::Config;
 use Grm::DB;
 use Grm::Search;
-use Grm::Utils qw(camel_case commify iterative_search_values timer_calc pager);
+use Grm::Utils qw(camel_case commify iterative_search_values timer_calc);
 use JSON qw(encode_json decode_json);
 use LWP::UserAgent;
 use List::MoreUtils qw(uniq);
@@ -57,7 +57,7 @@ sub search {
     my $odb         = Grm::Ontology->new;
     my $results     = {};
 
-    if ( $query ) {
+    if ($query) {
         # ensure not multi-valued
         $req->param( query => $query ); 
 
@@ -81,7 +81,7 @@ sub search {
             #
             # Force stringify, store the "query" separately
             #
-            ( my $orig_params = $req->params . '' ) =~ s/query=[^;&]+[;&]?//;
+            (my $orig_params = $req->params . '') =~ s/query=[^;&]+[;&]?//;
 
             my $search_db = Grm::DB->new('search');
             $search_db->schema->resultset('QueryLog')->create({
@@ -98,67 +98,77 @@ sub search {
     #
     # Here we clean up the Solr results just a touch
     #
-    if (my $num_found = $results->{'num_found'}) {
-        for my $core ( @{$results->{'cores'} || []} ) {
-            next if $core->{'response'}{'error'};
-
-            for my $doc ( @{ $core->{'response'}{'docs'} || [] } ) {
-                my $id = $doc->{'id'};
-                if (my $hl = $core->{'highlighting'}{ $id }{'text'}) {
-                    $doc->{'content'} = $hl;
+    if (my $num_found = $results->{'response'}{'numFound'}) {
+        for my $doc ( @{ $results->{'response'}{'docs'} || [] } ) {
+            my $id = $doc->{'id'};
+            if (my $hl = $results->{'highlighting'}{ $id }{'text'}) {
+                if (ref $hl eq 'ARRAY') {
+                    $hl = join(' ', @$hl);
                 }
-
-                $doc->{'content'} ||= $doc->{'description'};
+                $doc->{'content'} = $hl;
             }
 
-            if ( $num_found > $page_size ) {
-                my $pager = Data::Pageset->new({
-                    total_entries    => $num_found,
-                    current_page     => $page_num,
-                    entries_per_page => $page_size,
-                });
+            $doc->{'content'} ||= $doc->{'description'};
+        }
 
-                $core->{'pager'} = {
-                    total_entries => $num_found,
-                    current_page  => $page_num,
-                    pages         => $pager->pages_in_set,
+        if ( $num_found > $page_size ) {
+            my $pager = Data::Pageset->new({
+                total_entries    => $num_found,
+                current_page     => $page_num,
+                entries_per_page => $page_size,
+                mode             => 'slide',
+            });
+
+            $results->{'pager'} = {
+                total_entries => $num_found,
+                current_page  => $page_num,
+                pages         => [
+                    map {{ 
+                        page    => $_,
+                        current => $_ == $page_num,
+                    }}
+                    @{$pager->pages_in_set},
+                ],
+            };
+        }
+
+        my %facets;
+        while (my ($facet_category, $facets) = 
+            each %{ $results->{'facet_counts'}{'facet_fields'} || {} }
+        ) {
+            next if scalar @$facets == 2; # only one item (eg, "foo = 1")
+
+            while ( my ($facet_name, $count) = splice(@$facets, 0, 2) ) {
+                (my $display = ucfirst $facet_name) =~ s/_/ /g;
+                (my $cat = ucfirst $facet_category) =~ s/_/ /g;
+
+                if ($facet_category eq 'ontology') {
+                    # 
+                    # Use term prefix ("GO") for category name
+                    # 
+                    ($cat = $facet_name) =~ s/:.*//; 
+
+                    if ( my $term_name = $odb->db->dbh->selectrow_array(
+                            'select name from term where term_accession=?',
+                            {},
+                            $facet_name
+                        )
+                    ) {
+                        $display = sprintf '%s (%s)', $facet_name, $term_name;
+                    }
+                }
+
+                push @{ $facets{ $cat } }, { 
+                    name    => $facet_category,
+                    value   => $facet_name,
+                    display => $display, 
+                    count   => $count 
                 };
             }
-
-            my %facets;
-            while (my ($facet_name, $facets) = 
-                each %{ $core->{'facet_counts'}{'facet_fields'} || {} }
-            ) {
-                next if scalar @$facets == 2;
-                while ( my ($key, $count) = splice(@$facets, 0, 2) ) {
-                    if ($facet_name eq 'ontology') {
-                        ( my $prefix = $key ) =~ s/:.*//;
-                        if ( my $term_name = $odb->db->dbh->selectrow_array(
-                                'select name from term where term_accession=?',
-                                {},
-                                $key
-                            )
-                        ) {
-                            $key = sprintf '%s (%s)', $key, $term_name;
-                        }
-
-                        push @{ $facets{'ontology'}{$prefix} }, { 
-                            name  => $key, 
-                            count => $count 
-                        };
-                    }
-                    else {
-                        push @{ $facets{ $facet_name } }, {
-                            name  => $key,
-                            count => $count
-                        };
-                    }
-                }
-            }
-
-            $core->{'facet_counts'} = \%facets;
-            delete $core->{'highlighting'}
         }
+
+        $results->{'facet_counts'} = \%facets;
+        delete $results->{'highlighting'}
     }
 
     $self->respond_to(

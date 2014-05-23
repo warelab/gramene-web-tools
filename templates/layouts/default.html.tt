@@ -5,28 +5,20 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
-    <script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-
-    <script src="/js/bootstrap.js"></script>
-    <script src="/js/handlebars.js"></script>
-    <script src="/js/string.js"></script>
-    <script src="/js/jquery.dataTables.js"></script>
-    <script src="/js/jquery.cookie.js"></script>
-    <script src="/js/jquery.storageapi.js"></script>
-    <script src="/js/jquery.simplemodal.js"></script>
-    <script src="/js/underscore.js"></script>
-    <script src="/lib/d3/d3.js"></script>
-    <script src="/js/d3.layout.cloud.js"></script>
-
     <link rel="shortcut icon" href="/ico/favicon.ico">
 
     <title>Gramene Web Tools</title>
 
-    <link href="/css/bootstrap.css" rel="stylesheet" />
+    <!-- script src="/js/google-caja/html-sanitizer.js" -->
+    <script src="/js/jquery.js"></script>
+    <script src="/js/jquery-ui.js"></script>
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/jquery.dataTables.js"></script>
+    <script src="/js/handlebars.js"></script>
+    <script src="/js/underscore.js"></script>
+
     <link href="/css/jquery.dataTables.css" rel="stylesheet" />
-    <link href="/css/jquery.tocify.css" rel="stylesheet" />
-    <link href="/css/jquery.modal.css" rel="stylesheet" />
+    <link href="/css/bootstrap.css" rel="stylesheet" />
     <link href="/css/grm-style.css" rel="stylesheet" />
     <link href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
 
@@ -124,7 +116,6 @@
       <ul class="nav navbar-nav">
         <li><a href="/search">Search</a></li>
         <li><a href="/ontology">Ontologies</a></li>
-        <li><a href="/cart/view">Cart</a></li>
         <li><a href="/feedback">Feedback</a></li>
       </ul>
 
