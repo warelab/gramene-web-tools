@@ -12,6 +12,7 @@ requires 'DBI'                             => '1.630';
 requires 'DBIx::Class'                     => '0.08260';
 requires 'JSON::XS'                        => '3.01';
 requires 'LWP'                             => '6.06';
+requires 'Perl6::Slurp'                    => '0.051005';
 requires 'Mail::Sendmail'                  => '0.79';
 requires 'Moose'                           => '2.1005';
 requires 'Mojolicious'                     => '4.87';
