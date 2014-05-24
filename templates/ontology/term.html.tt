@@ -91,7 +91,7 @@
           </table>
 
           <hr>
-          <div class="text-center"><button type="button" class="btn btn-default" onclick="location.href='[% config.url_base _ '/ontology/association_report' _ '/' _ term.id _ '.tab?download=1' %]'">Download All Associations</button>
+          <div class="text-center"><button type="button" class="btn btn-default" onclick="location.href='[% config.url_base _ '/rest/ontology_associations' _ '/' _ term.id _ '.tab?download' %]'">Download All Associations</button>
           </div>
         [% ELSE %]
           <div class="text-center">None.</div>
