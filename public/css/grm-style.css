@@ -8,6 +8,11 @@
   background: #547a73;
 }
 
+a {
+  color: #547a73;
+  text-decoration: none;
+}
+
 em {
   color: #ea8e75;
 }

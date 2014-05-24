@@ -1,0 +1,79 @@
+[% SET title="Gramene Feedback" %]
+[% SET referrer=c.req.headers.referrer OR '' %]
+<form method="post" action="[% c.url_for('/feedback/submit') %]?refer_from=[% referrer %]" enctype="multipart/form-data">
+<table align="center" border="0" cellpadding="5" cellspacing="10" width="90%">
+  <tr>
+    <td align="center" valign="middle" colspan="2">
+      <h1>Questions? Comments? Please let us know.</h1>
+    </td>
+  </tr>
+  [% IF err_msg %]
+  <tr>
+    <td align="center" valign="middle" colspan="2">
+      <b>Error:</b><p>[% err_msg %]</p>
+    </td>
+  </tr>
+  [% END %]
+  <tr>
+    <td align="right" valign="middle">Refer to:</td>
+    <td>
+      [% IF referrer.length > 80 %]
+        [% FOREACH chunk IN referrer.chunk(80) %]
+          [% chunk %]<br>
+        [% END %]
+      [% ELSE %]
+        [% referrer OR 'No referrer' %]
+      [% END %]
+      <input type="hidden" name="refer_to_url" value="[% referrer %]">
+    </td>
+  </tr>
+  <tr>
+    <td align="right" valign="middle">Subject:</td>
+    <td>
+      <input type="text" name="subject" tabindex="1" size="60" maxlength="160" value="[% c.req.param('subject') %]">
+    </td>
+  </tr>
+  <tr>
+    <td align="right" valign="middle">Questions/Comments:</td>
+    <td>
+      <textarea name="comments" tabindex="2" rows="10" cols="60">[% c.req.param('comments') %]</textarea>
+    </td>
+  </tr>
+  <tr>
+    <td align="right" valign="middle">Your Name:</td>
+    <td>
+      <input type="text" name="name" tabindex="3" size="60" maxlength="300" value="[% c.req.param('name') %]">
+    </td>
+  </tr>
+  <tr>
+    <td align="right" valign="middle">Your Email:</td>
+    <td>
+      <input type="text" name="email" tabindex="4" size="60" maxlength="100" value="[% c.req.param('email') %]">
+    </td>
+  </tr>
+  <tr>
+    <td align="right" valign="middle">Organization:</td>
+    <td>
+      <input type="text" name= "organization" tabindex="5" size="60" maxlength="100" value="[% c.req.param('organization') %]">
+    </td>
+  </tr>
+  [% IF trusted_ip %]
+      [%# we include this here so we always pass back in an md5sum and a guess %]
+      <input type="hidden" name="md5sum" value="trusted ip">
+      <input type="hidden" name="captcha" value="trusted ip">
+  [% ELSE %]
+  <tr>
+        <td align="right" valign="middle"></td>
+        <td>
+        <input type='hidden' name='md5sum' value='[% captcha_md5sum %]'>
+          [% captcha %]
+        </td>
+      </tr>
+      <tr>
+   [% END %]
+    <td align="center" colspan="2">
+      <input class="btn btn-primary" type="submit" tabindex="6" name="send_feedback" value="Send your feedback"> &nbsp;&nbsp;&nbsp;
+    </td>
+  </tr>
+</table>
+</form>

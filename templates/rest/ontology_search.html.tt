@@ -1,5 +1,14 @@
+[% USE Comma %]
 <div class="container">
-[% IF terms.size > 0 %]
+[% IF num_found > 0 %]
+  <div class="text-center">
+    [% IF show_pager %]
+      Showing [% pager.first | comma %] to [% pager.last | comma %] of [% num_found | comma %] terms for &quot;[% query %]&quot;
+    [% ELSE %]
+      Found [% num_found | comma %] terms for &quot;[% query %]&quot;
+    [% END %]
+  </div>
+  <br/>
   <table class="table">
     <tr>
       <th>Acc.</th>
@@ -10,11 +19,24 @@
       <tr>
         <td>[% term.term_accession %]</td>
         <td>[% term.name %]</td>
-        <td><a href="/view/ontology/term/[% term.term_id %]">View</a></td>
+        <td><a href="/ontology/term/[% term.term_id %]">View</a></td>
       </tr>
     [% END %]
   </table>
+
+  [% IF show_pager AND pager %]
+    <div class="text-center">
+    <ul class="pagination">
+      [% params = c.req.params.to_hash; params.delete('page_num'); %]
+      [% FOREACH page IN pager.pages_in_set %]
+        <li[% IF page == pager.current_page %] class="active"[% END %]><a href="[% c.url_for('/ontology').query(params) %]&page_num=[% page %]">[% page %]</a></li>
+      [% END %]
+    </ul>
+    </div>
+  [% END %]
 [% ELSE %]
+  <div class="text-center well">
   Nothing found for &quot;[% query %]&quot;
+  </div>
 [% END %]
 </div>

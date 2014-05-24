@@ -1,0 +1,102 @@
+[% USE Comma %]
+[% IF assoc_count > 0 %]
+  <script>
+  [% SET aaData = [] %]
+  [% FOREACH assoc IN associations %]
+    [% 
+      SET species = assoc.species OR assoc.common_name OR 'N/A';
+      SET url = config.url_base _ '/ontology/association_report/' _ term.id 
+              _ '?species_id=' _ assoc.species_id 
+              _ '&object_type=' _ assoc.object_type;
+      SET link = "<a href='${url}'>View</a>";
+      aaData.push("[\"${species}\", \"${assoc.object_type}\", \"${assoc.count}\", \"${link}\"]");
+    %]
+  [% END %]
+
+  $(document).ready( function () {
+    $('#associations').dataTable({
+      'iDisplayLength': lesser_of([% associations.size %], [10, 25, 50, 100]),
+      'bProcessing': true,
+      'aaData': [
+        [% aaData.join(', ') %]
+      ],
+      'aoColumns': [
+        { 'sTitle': 'Species' },
+        { 'sTitle': 'Object Type' },
+        { 'sTitle': 'Count', 'sClass': 'right' },
+        { 'sTitle': 'View' }
+      ]
+    });
+  });
+  </script>
+[% END %]
+
+<div class="container">
+  <h1>Ontology Term &quot;[% term.term_accession %]&quot;</h1>
+  <div id="main" class="panel-group">
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <table class="table">
+          <tr>
+            <th>Name:</th>
+            <td>
+              [% term.name %] [% IF term.is_obsolete %]<b>Obsolete</b>[% END %]
+              <br/>
+            </td>
+          </tr>
+          [% IF term.is_obsolete %]
+            <tr>
+              <th>See Also:</th>
+              <td>[% term.is_obsolete %]</td>
+            </tr>
+          [% END %]
+          <tr>
+            <th>Definition:</th>
+            <td>[% term.term_definition.definition %]</td>
+          </tr>
+          <tr>
+            <th>Synonyms&nbsp;([% term.term_synonyms.size OR '0' %]):</th>
+            <td>
+              [% IF term.term_synonyms.size > 0 %]
+                <ul>
+                [% FOREACH syn IN term.term_synonyms %]
+                <li>[% syn.term_synonym %]</li>
+                [% END %]
+                </ul>
+              [% ELSE %]
+                None
+              [% END %]
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading"><b>Associations ([% assoc_count OR '0' | comma %])</b></div>
+
+      <div class="panel-body">
+        [% IF assoc_count > 0 %]
+          <table id="associations" class="display" cellpadding="0" cellspacing="0" border="0">
+          <thead>
+          <tr>
+            <th>Species</th>
+            <th>Object Type</th>
+            <th>Count</th>
+            <th>View</th>
+          </tr>
+          </thead>
+          <tbody>
+          </tbody>
+          </table>
+
+          <hr>
+          <div class="text-center"><button type="button" class="btn btn-default" onclick="location.href='[% config.url_base _ '/rest/ontology_associations' _ '/' _ term.id _ '.tab?download' %]'">Download All Associations</button>
+          </div>
+        [% ELSE %]
+          <div class="text-center">None.</div>
+        [% END %]
+      </div>
+    </div>
+  </div> <!-- panel group -->
+</div> <!-- container -->

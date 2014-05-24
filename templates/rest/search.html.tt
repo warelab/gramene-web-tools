@@ -1,73 +1,5 @@
-[%- USE Comma; SET fq_num = 1 -%]
-<script>
-function refine (event, options) {
-  event.preventDefault();
-
-  if ( options === undefined ) {
-    options = {};
-  }
-
-  var qry_string = $('#facets-form').serialize();
-  var fq_remove  = options['fq_remove'];
-
-  if ( fq_remove !== undefined ) {
-    qry_string = 'query=' + $('#query').val();
-
-    var fqs = $('input[name=fq][type=hidden]');
-    for (var i = 0, len = fqs.length; i < len; i++ ) {
-      var fq = fqs[i];
-      var val = fq.value;
-      if ( val != fq_remove ) { 
-        qry_string += '&fq=' + val;
-      }
-    }
-  }
-
-  var page_num   = options.page_num;
-  if ( page_num ) {
-    qry_string += '&page_num=' + page_num;
-  }
-
-  window.location.href = "http://tools.gramene.org/search?" + qry_string;
-}
-</script>
-
-[% BLOCK nav_tree %]
-  <div id="collapse-[% div_num %]" class="panel-body collapse">
-    [% 
-      WHILE ( f = facet.splice(0, 2) );
-        LAST UNLESS f.size;
-        SET facet_name = f.0;
-        SET facet_num  = f.1;
-        NEXT UNLESS facet_name;
-        SET facet_name_uri = facet_name.replace(' (.*)', '');
-        SET text = 
-            ' <input type="checkbox" name="fq"'
-          _ ' id="fq_' _ fq_num _ '"'
-          _ ' value="' _ facet_fld _ ':' _ facet_name_uri _ '"'
-          _ ' onclick="javascript:refine(event)"'
-          _ '>&nbsp;'
-          _  facet_name.ucfirst.replace('_', ' ') 
-          _ ' <span class="badge pull-right">' _ facet_num _ '</span>'
-        ;
-        SET fq_num=fq_num + 1;
-    %]
-      <div class="panel-body">[% text %]</a></div>
-    [% END %]
-  </div>
-[% END %]
-
-[% IF results.error %]
-<div class="well">
-  Error: [% results.error %] [% IF results.code %] (Code: [% results.code %])[% END %]
-</div>
-[% END %]
-
-[% SET num = results.response.numFound -%]
-
-[% IF num > 0 %]
-<div class="container">
-  <div class="col-md-4">
+[% IF results.response.numFound > 0 %]
+  <div class="col-md-3">
     <form id="facets-form">
     <div id="sidebar" class="panel-group">
       <div class="panel panel-default">
@@ -95,14 +27,14 @@ function refine (event, options) {
             [% END %]
           [% END %]
           <div class="text-center">
-            Found [% num | comma %] in [% results.time %].
+            Found [% results.response.numFound | comma %] in [% time = results.time; IF time < 1; POSIX.ceil(time * 100) _ ' ms'; ELSE; POSIX.ceil(time) _ ' seconds'; END  %].
           </div>
         </div>
       </div>
 
       [% SET i=0; SET facets = results.facet_counts.facet_fields %]
-      [% FOREACH facet_fld IN [ 'species', 'object', 'ontology' ] # facets.keys.sort %]
-        [% NEXT UNLESS facets.$facet_fld.size > 0 %]
+      [% FOREACH facet_fld IN facets.keys.sort %]
+      [% SET facet_size = facets.$facet_fld.size OR 0; NEXT UNLESS facet_size > 0 %]
         <div class="panel panel-default">
           <div class="panel-heading">
             <div class="panel-title">
@@ -135,13 +67,37 @@ function refine (event, options) {
   </div>
 
   <div class="col-md-8">
+    <table>
     [% FOREACH hit IN results.response.docs %]
-    <p>
       [% SET hit_id = hit.id %]
-      <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
-      [% hit.content.join('<br/>') %]
-    </p>
+      <tr>
+        <td valign="top">
+          <input type="checkbox" name="obj_id" value="[% hit.id %]" onchange='update_cart({ id: "[% hit.id %]", add: $(this).is(":checked"), update_count: true})'>
+        </td>
+        <td>
+        <p>
+        <a target="_blank" href="[% hit.url OR "/view/$hit_id" %]">[% hit.title | truncate(80) %]</a><br/>
+        [% hit.content.join('<br/>') OR hit.description %]
+        </p>
+        </td>
+      </tr>
     [% END %]
+    </table>
+
+    [% IF results.pager %]
+    <div class="text-center">
+    <ul class="pagination">
+      [% FOREACH page IN results.pager.pages_in_set %]
+      <li[% IF page == pager.current_page %] class="active"[% END %]><a href="" onclick="javascript:refine(event, { 'page_num': '[% page %]'}); return false;">[% page %]</a></li>
+      [% END %]
+    </ul>
+    </div>
+    [% END %]
+
+    <div class="text-center">
+      <input id="select-showing-btn" type="button" class="btn btn-default" value="Select These" onclick="javascript:select_showing_toggle(event)">
+      <input id="select-all-btn" type="button" class="btn btn-default" value="Select All" onclick="javascript:select_all(event)">
+    </div>
 
     [% IF pager %]
     <div class="text-center">
@@ -153,22 +109,11 @@ function refine (event, options) {
     </div>
     [% END %]
   </div>
-</div>
 [% ELSE %]
-  [% IF suggestions.size > 0 %]
-    <div class="well">
-      Did you mean?<br/>
-      <ul>
-      [% FOREACH suggestion IN suggestions %]
-        <li><a href="[% suggestion.url %]">[% suggestion.title %]</a></li>
-      [% END %]
-      </ul>
-    </div>
-  [% ELSE %]
-    <div class="well text-center">
-      Sorry, I couldn't find anything for &quot;[% c.req.param('query') %]&quot;
-      If you think that's a problem, please 
-      <a href="http://www.gramene.org/contact">contact us</a>.
-    </div>
-  [% END %]
+  <div class="well">
+    No results for [% name %].
+    [% IF results.error %]
+      <b>Error:</b> [% results.error %]
+    [% END %]
+  </div>
 [% END %]

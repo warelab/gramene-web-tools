@@ -1,0 +1,24 @@
+<script>
+$(document).ready( function () {
+  $('#queries').dataTable( {
+    'bProcessing': true,
+    'sAjaxSource': '[% config.url_base %]/rest/search_log.json?format=dt'
+  });
+});
+</script>
+
+<table id="queries" class="display" cellpadding="0" cellspacing="0" border="0">
+<thead>
+<tr>
+  <th>Query</th>
+  <th>Num. Found</th>
+  <th>Params</th>
+  <th>User ID</th>
+  <th>IP</th>
+  <th>Time</th>
+  <th>Date</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
