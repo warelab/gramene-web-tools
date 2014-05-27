@@ -25,9 +25,9 @@
           {{/if}}
 
           <div class="text-center">
-          Showing {{comma start}} to {{comma end}} 
-          of {{comma response.numFound}} records.<br/> 
-          <small>Search took {{time}} seconds.</small>
+            Showing {{comma start}} to {{comma end}} 
+            of {{comma response.numFound}} records.<br/> 
+            <small>Search took {{time}} seconds.</small>
           </div>
         </div>
       </div>
@@ -153,13 +153,18 @@ function exec_search(qry_string) {
         }
       }
 
-      data['params'] = params;
-      data['fq'] = fq;
-      data['start'] = data.response.start || 1;
-      data['end'] = parseInt(data.response.start) + parseInt(_.size(data.response.docs));
+      if (data.response.numFound) {
+        data['params'] = params;
+        data['fq'] = fq;
+        data['start'] = data.response.start || 1;
+        data['end'] = parseInt(data.response.start) + parseInt(_.size(data.response.docs));
 
-      var html = template(data);
-      $('#search-results').html(html); 
+        var html = template(data);
+        $('#search-results').html(html); 
+      }
+      else {
+        $('#search-results').html('<div class="well text-center">No results.</div>');
+      }
     },
 
     error: function (xhr, text_status, error_thrown) { 
