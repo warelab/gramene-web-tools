@@ -221,7 +221,7 @@ $(document).ready( function () {
   var query = getParameterByName('query');
 
   if (query != undefined) {
-    $('#query').val(escape(query));
+    $('#query').val(query);
     var qry_string = document.URL.split('?')[1];
     exec_search(qry_string);
   }
