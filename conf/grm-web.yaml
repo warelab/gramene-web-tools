@@ -1,4 +1,4 @@
-url_base: "http://tools.gramene.org"
+url_base: "http://apps.gramene.org"
 
 secret: "This land is your land, this land is my land."
 
@@ -26,8 +26,6 @@ view:
 
     ontology-term: "TT:/ontology/term/[% object.term_accession %]"
 
-    pathway_arabidopsis_thaliana-pathway: "TT:http://pathway.gramene.org/ARA/NEW-IMAGE?type=PATHWAY&object=[% id %]"
-
     pathway_brachypodium_distachyon-pathway: "TT:http://pathway.gramene.org/BRACY/NEW-IMAGE?type=PATHWAY&object=[% id %]"
 
     pathway_capsicum_anuum-pathway: "TT:http://pathway.gramene.org/CAP/NEW-IMAGE?type=PATHWAY&object=[% id %]"
@@ -47,6 +45,31 @@ view:
     pathway_sorghum_bicolor-pathway: "TT:http://pathway.gramene.org/Sorghum/NEW-IMAGE?type=PATHWAY&object=[% id %]"
 
     pathway_zea_mays-pathway: "TT:http://pathway.gramene.org/MAIZE/NEW-IMAGE?type=PATHWAY&object=[% id %]"
+=======
+    ontology-term: "TT:/ontology/term/[% object.term_accession %]"
+
+    pathway_arabidopsis_thaliana-pathway: "TT:http://pathway.gramene.org/ARA/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_brachypodium_distachyon-pathway: "TT:http://pathway.gramene.org/BRACY/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_capsicum_anuum-pathway: "TT:http://pathway.gramene.org/CAP/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_coffea_canephora-pathway: "TT:http://pathway.gramene.org/COFFEA/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_medicago_truncatula-pathway: "TT:http://pathway.gramene.org/MEDIC/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_oryza_sativa-pathway: "TT:http://pathway.gramene.org/RICE/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_populus_trichocarpa-pathway: "TT:http://pathway.gramene.org/POPLAR/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_solanum_lycopersicum-pathway: "TT:http://pathway.gramene.org/LYCO/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_solanum_tuberosum-pathway: "TT:http://pathway.gramene.org/POTATO/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+
+    pathway_sorghum_bicolor-pathway: "TT:http://pathway.gramene.org/Sorghum/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+        
+    pathway_zea_mays-pathway: "TT:http://pathway.gramene.org/MAIZE/NEW-IMAGE?type=PATHWAY&object=[% object.pathway_id %]"
+>>>>>>> b5ed7b44a5cc3546a2fa218cf9a7834bd94a3d4d
 
     reactome_oryza_sativa-reactome: "TT:http://plantreactome.gramene.org/entitylevelview/PathwayBrowser.html#DB=test_slice_oryza_sativa_06&FOCUS_SPECIES_ID=186860&FOCUS_PATHWAY_ID=[% object.pathway_id %]&ID=[% id %]"
 

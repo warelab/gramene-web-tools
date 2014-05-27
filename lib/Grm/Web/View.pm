@@ -51,10 +51,10 @@ sub object {
         },
 
         html => sub {
-            my $db      = Grm::DB->new( $module );
+            my $db      = Grm::DB->new($module);
             my $schema  = $db->schema;
-            my $rs_name = camel_case( $table );
-            my $obj     = $schema->resultset( $rs_name )->find( $id );
+            my $rs_name = camel_case($table);
+            my $obj     = $schema->resultset($rs_name)->find($id);
             my %args    = (
                 module  => $module,
                 table   => $table,
@@ -63,16 +63,6 @@ sub object {
                 db      => $db,
                 schema  => $schema,
             );
-
-#            my %views = %{ $config->{'view'}{'template'} || {} };
-#            my $test  = join '-', $module, $table;
-#
-#            for my $key ( %views ) {
-#                if ( $test eq $key || $test =~ /$key/ ) {
-#                    $args{'template'} = $views{ $key };
-#                    last;
-#                }
-#            }
 
             $self->render( %args );
         },
