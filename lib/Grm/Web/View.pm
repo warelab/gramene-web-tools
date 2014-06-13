@@ -25,7 +25,7 @@ sub object {
                 );
 
                 if ($link && $link ne $self->req->url) {
-                    $self->redirect_to($link);
+                    return $self->redirect_to($link);
                 }
             }
         }
