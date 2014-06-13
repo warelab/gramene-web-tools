@@ -131,11 +131,11 @@ sub startup {
             my $tt_tmpl = $1;
             my $obj     = {};
 
-            if ( $id ) {
-                my $db      = Grm::DB->new( $module );
+            if ($id =~ /^\d+$/) {
+                my $db      = Grm::DB->new($module);
                 my $schema  = $db->schema;
-                my $rs_name = camel_case( $table );
-                $obj        = $schema->resultset( $rs_name )->find( $id );
+                my $rs_name = camel_case($table);
+                $obj = $schema->resultset($rs_name)->find($id);
             }
 
             my $tt = Template->new;
