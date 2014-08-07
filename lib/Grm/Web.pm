@@ -1,5 +1,6 @@
 package Grm::Web;
 
+use Data::Dump 'dump';
 use File::Spec::Functions;
 use Grm::Utils qw( camel_case );
 use Mojo::Base 'Mojolicious';
@@ -147,7 +148,11 @@ sub startup {
                     %args
                 }, 
                 \$url 
-            ) or $url = $tt->error;
+            );
+
+            if (my $err = $tt->error) {
+                print STDERR "Error processing '$tt_tmpl': $err\n";
+            }
         }
         else {
             if ( $module && $table && $id ) {
