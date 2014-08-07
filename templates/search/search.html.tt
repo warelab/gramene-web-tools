@@ -153,7 +153,16 @@ function exec_search(qry_string) {
         }
       }
 
-      if (data.response.numFound) {
+      console.log(JSON.stringify(data));
+      if (_.size(data.suggestions)) {
+        var html = 'Did you mean one of these?<ul>'
+        for (var i =0; i < _.size(data.suggestions); i++) {
+          var sug = data.suggestions[i];
+          html += '<li><a href="' + sug['url'] + '">' + sug['title'] + '</li>';
+        }
+        $('#search-results').html(html);
+      }
+      else if (data.response.numFound) {
         data['params'] = params;
         data['fq'] = fq;
         data['start'] = data.response.start || 1;
@@ -221,7 +230,7 @@ $(document).ready( function () {
   var query = getParameterByName('query');
 
   if (query != undefined) {
-    $('#query').val(escape(query));
+    $('#query').val(query);
     var qry_string = document.URL.split('?')[1];
     exec_search(qry_string);
   }
