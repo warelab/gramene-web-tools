@@ -64,7 +64,7 @@ sub object {
                 schema  => $schema,
             );
 
-            $self->render( %args );
+            $self->render(%args);
         },
     );
 }
