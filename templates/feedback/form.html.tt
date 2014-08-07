@@ -7,10 +7,15 @@
       <h1>Questions? Comments? Please let us know.</h1>
     </td>
   </tr>
-  [% IF err_msg %]
+  [% IF errors.size > 0 %]
   <tr>
     <td align="center" valign="middle" colspan="2">
-      <b>Error:</b><p>[% err_msg %]</p>
+      <b>Error:</b>
+      <ul>
+      [% FOREACH err IN errors %]
+        <li>[% err %]</li>
+      [% END %]
+      </ul>
     </td>
   </tr>
   [% END %]

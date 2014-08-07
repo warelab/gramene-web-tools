@@ -73,8 +73,8 @@ sub startup {
 
     $r->get('/rest/ontology_search')->to('rest#ontology_search');
 
-    $r->get('/rest/ontology_associations/:term_id')->to(
-        'rest#ontology_associations'
+    $r->get('/ontology/association_report/:term_id')->to(
+        'ontology#association_report'
     );
 
     $r->get('/ontology/association_report/:term_id')->to(
@@ -131,11 +131,11 @@ sub startup {
             my $tt_tmpl = $1;
             my $obj     = {};
 
-            if ( $id ) {
-                my $db      = Grm::DB->new( $module );
+            if ($id =~ /^\d+$/) {
+                my $db      = Grm::DB->new($module);
                 my $schema  = $db->schema;
-                my $rs_name = camel_case( $table );
-                $obj        = $schema->resultset( $rs_name )->find( $id );
+                my $rs_name = camel_case($table);
+                $obj = $schema->resultset($rs_name)->find($id);
             }
 
             my $tt = Template->new;

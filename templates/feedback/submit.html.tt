@@ -1,37 +1,51 @@
-<table>
-  <tr>
-    <td align="center" colspan="2">
-      <h1>The following feedback was sent:</h1>
-    </td>
-  </tr>
-  <tr>
-    <th class="datatitle">To:</th>
-    <td>
-      [% To | html %]
-    </td>
-  </tr>
-  <tr>
-    <th class="datatitle">From:</th>
-    <td>
-      [% From | html %]
-    </td>
-  </tr>
-  <tr>
-    <th class="datatitle">Subject:</th>
-    <td>
-      [% Subject %]
-    </td>
-  </tr>
-  <tr>
-    <th class="datatitle">Message:</th>
-    <td>
-      [% Message | html_para %]
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <a href="[% return_url %]">Back to the page I was viewing</a>
-    </td>
-  </tr>
-</table>
+<div class="container">
+[% IF errors.size > 0 %]
+  <div class="well text-center">
+    <b>Error:</b>
+    <div class="text-left">
+    <ul>
+    [% FOREACH err IN errors %]
+      <li>[% err %]</li>
+    [% END %]
+    </div>
+    </ul>
+  </div>
+[% ELSE %]
+  <table>
+    <tr>
+      <td align="center" colspan="2">
+        <h1>The following feedback was sent:</h1>
+      </td>
+    </tr>
+    <tr>
+      <th class="datatitle">To:</th>
+      <td>
+        [% To | html %]
+      </td>
+    </tr>
+    <tr>
+      <th class="datatitle">From:</th>
+      <td>
+        [% From | html %]
+      </td>
+    </tr>
+    <tr>
+      <th class="datatitle">Subject:</th>
+      <td>
+        [% Subject %]
+      </td>
+    </tr>
+    <tr>
+      <th class="datatitle">Message:</th>
+      <td>
+        [% Message | html_para %]
+      </td>
+    </tr>
+    <tr>
+      <td align="center" colspan="2">
+        <a href="[% return_url %]">Back to the page I was viewing</a>
+      </td>
+    </tr>
+  </table>
+[% END %]
 </div>
