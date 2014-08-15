@@ -4,7 +4,7 @@
   <div class="col-md-4">
     <form id="facets-form">
     {{#each params}}
-      <input type="hidden" name="{{this.name}}" value="{{{this.val}}}">
+      <input type="hidden" name="{{this.name}}" value="{{this.val}}">
     {{/each}}
     <div id="sidebar" class="panel-group">
       <div class="panel panel-default">
@@ -230,7 +230,7 @@ $(document).ready( function () {
   var query = getParameterByName('query');
 
   if (query != undefined) {
-    $('#query').val(query);
+    $('#query').val(unescape(query));
     var qry_string = document.URL.split('?')[1];
     exec_search(qry_string);
   }
